@@ -21,29 +21,29 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
     }
 
     return (
-        <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-surface-200 bg-white/80 backdrop-blur-xl px-4 md:px-8 shadow-sm">
+        <header className="sticky top-0 z-40 flex h-20 items-center gap-4 border-b border-white/20 bg-white/70 backdrop-blur-2xl px-6 md:px-10 shadow-sm transition-all duration-300">
             {/* Mobile menu toggle */}
             <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="md:hidden rounded-lg p-2 text-surface-700 hover:bg-surface-100 transition-colors"
+                className="md:hidden rounded-2xl p-2.5 text-surface-600 hover:bg-surface-100/50 hover:text-brand-600 transition-all active:scale-95"
                 aria-label="Toggle sidebar"
             >
-                {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
+                {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
 
             {/* Branding */}
-            <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full shadow-md overflow-hidden bg-white">
+            <div className="flex items-center gap-4 min-w-0 group cursor-pointer" onClick={() => navigate('/')}>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl shadow-xl shadow-brand-500/10 overflow-hidden bg-white ring-4 ring-white transition-transform duration-500 group-hover:rotate-[10deg]">
                     <img src="/elman-logo.jpeg" alt="Elman" className="w-full h-full object-contain" />
                 </div>
                 <div className="hidden sm:block min-w-0">
-                    <h1 className="text-base tracking-tight truncate" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
-                        <span style={{ color: '#1a2250', fontWeight: 700 }}>el</span>
-                        <span style={{ color: '#b91c1c', fontWeight: 700 }}>man</span>
-                        <span className="text-surface-300 mx-0.5">-</span>
-                        <span style={{ color: '#1a2250', fontWeight: 600, fontSize: '0.8em', letterSpacing: '0.04em' }}>FURNACE PRIVATE LIMITED</span>
+                    <h1 className="text-xl tracking-tighter leading-none" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
+                        <span className="font-extrabold text-[#1a2250]">el</span>
+                        <span className="font-extrabold text-[#b91c1c]">man</span>
+                        <span className="text-surface-300 mx-1 font-light">/</span>
+                        <span className="font-semibold text-[#1a2250]/80 text-[0.75em] tracking-wider uppercase">Furnace</span>
                     </h1>
-                    <p className="text-[11px] text-surface-700/60 font-medium -mt-0.5 tracking-wide uppercase">
+                    <p className="text-[10px] text-surface-400 font-bold mt-1 tracking-[0.2em] uppercase">
                         Enterprise Resource Planner
                     </p>
                 </div>
@@ -52,75 +52,80 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
             {/* Spacer */}
             <div className="flex-1" />
 
-            {/* Role badge (always shown) */}
-            <div className="relative">
-                {user ? (
-                    /* Authenticated: show role badge only (no switcher) */
-                    <div
-                        className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset ${roleBadgeColor[role] || 'bg-surface-100 text-surface-700 ring-surface-300'}`}
-                    >
-                        <Shield size={13} />
-                        <span className="capitalize">{role}</span>
-                    </div>
-                ) : (
-                    /* Demo mode: show role switcher */
-                    <>
-                        <button
-                            onClick={() => setRoleDropdown(!roleDropdown)}
-                            className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition-all hover:shadow-md cursor-pointer ${roleBadgeColor[role] || 'bg-surface-100 text-surface-700 ring-surface-300'}`}
+            {/* Desktop Actions */}
+            <div className="flex items-center gap-3 md:gap-6">
+                {/* Role badge */}
+                <div className="relative">
+                    {user ? (
+                        <div
+                            className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-bold tracking-wide uppercase ring-1 ring-inset shadow-sm ${roleBadgeColor[role] || 'bg-surface-100 text-surface-700 ring-surface-300'}`}
                         >
-                            <Shield size={13} />
-                            <span className="capitalize">{role}</span>
-                            <ChevronDown size={12} className={`transition-transform ${roleDropdown ? 'rotate-180' : ''}`} />
-                        </button>
+                            <Shield size={12} className="opacity-70" />
+                            {role}
+                        </div>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => setRoleDropdown(!roleDropdown)}
+                                className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-bold tracking-wide uppercase ring-1 ring-inset transition-all hover:shadow-lg active:scale-95 cursor-pointer ${roleBadgeColor[role] || 'bg-surface-100 text-surface-700 ring-surface-300'}`}
+                            >
+                                <Shield size={12} className="opacity-70" />
+                                {role}
+                                <ChevronDown size={12} className={`transition-transform duration-300 ${roleDropdown ? 'rotate-180' : ''}`} />
+                            </button>
 
-                        {roleDropdown && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setRoleDropdown(false)} />
-                                <div className="absolute right-0 mt-2 w-44 rounded-xl bg-white border border-surface-200 shadow-xl shadow-surface-900/10 z-50 overflow-hidden">
-                                    <div className="px-3 py-2 border-b border-surface-100">
-                                        <p className="text-[10px] font-semibold text-surface-700/50 uppercase tracking-wider">Switch Role (Demo)</p>
+                            {roleDropdown && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setRoleDropdown(false)} />
+                                    <div className="absolute right-0 mt-3 w-52 rounded-2xl bg-white/90 backdrop-blur-xl border border-surface-200 shadow-2xl shadow-surface-900/10 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="px-4 py-3 border-b border-surface-100 bg-surface-50/50">
+                                            <p className="text-[10px] font-bold text-surface-400 uppercase tracking-widest">Switch Role (Demo)</p>
+                                        </div>
+                                        <div className="p-1.5">
+                                            {availableRoles.map((r) => (
+                                                <button
+                                                    key={r}
+                                                    onClick={() => { setDemoRole(r); setRoleDropdown(false) }}
+                                                    className={`w-full text-left px-3 py-2.5 text-xs font-semibold capitalize rounded-xl transition-all hover:bg-white flex items-center gap-3 ${r === role ? 'text-brand-600 bg-white shadow-sm ring-1 ring-surface-200/50' : 'text-surface-600 hover:text-surface-900'
+                                                        }`}
+                                                >
+                                                    <div className={`w-1.5 h-1.5 rounded-full transition-all ${r === role ? 'bg-brand-500 scale-125 shadow-[0_0_8px_rgba(79,70,229,0.5)]' : 'bg-surface-300'}`} />
+                                                    {r}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                    {availableRoles.map((r) => (
-                                        <button
-                                            key={r}
-                                            onClick={() => { setDemoRole(r); setRoleDropdown(false) }}
-                                            className={`w-full text-left px-3 py-2.5 text-sm font-medium capitalize transition-colors hover:bg-surface-50 flex items-center gap-2 ${r === role ? 'text-brand-600 bg-brand-50' : 'text-surface-700'
-                                                }`}
-                                        >
-                                            <div className={`w-2 h-2 rounded-full ${r === role ? 'bg-brand-500' : 'bg-surface-300'}`} />
-                                            {r}
-                                        </button>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </>
-                )}
-            </div>
+                                </>
+                            )}
+                        </>
+                    )}
+                </div>
 
-            {/* User info + Sign out */}
-            <div className="hidden lg:flex items-center gap-3 pl-3 border-l border-surface-200">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-white text-xs font-bold shadow-sm">
-                    {user?.email?.[0]?.toUpperCase() || 'U'}
-                </div>
-                <div className="text-xs">
-                    <div className="font-semibold text-surface-800 truncate max-w-[140px]">
-                        {user?.email || 'Demo User'}
+                {/* User Profile & Logout */}
+                <div className="flex items-center gap-3 pl-3 md:pl-6 border-l border-surface-200/50">
+                    <div className="hidden md:block text-right">
+                        <div className="text-xs font-bold text-surface-900 truncate max-w-[140px]">
+                            {user?.email?.split('@')[0] || 'Demo User'}
+                        </div>
+                        <div className="text-[10px] text-surface-400 font-bold uppercase tracking-tighter">
+                            {canViewFinancials ? 'Full Ledger' : 'Inventory Only'}
+                        </div>
                     </div>
-                    <div className="text-surface-700/50 font-medium">
-                        {canViewFinancials ? 'Full Access' : 'Limited Access'}
+                    <div className="group relative">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white text-sm font-bold shadow-lg shadow-brand-500/20 transition-transform group-hover:scale-110 active:scale-95 cursor-pointer">
+                            {user?.email?.[0]?.toUpperCase() || 'U'}
+                        </div>
+                        {user && (
+                            <button
+                                onClick={handleSignOut}
+                                className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-white border border-surface-200 flex items-center justify-center text-surface-400 hover:text-red-500 hover:scale-110 transition-all shadow-sm"
+                                title="Sign out"
+                            >
+                                <LogOut size={10} />
+                            </button>
+                        )}
                     </div>
                 </div>
-                {user && (
-                    <button
-                        onClick={handleSignOut}
-                        className="ml-1 p-1.5 rounded-lg text-surface-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                        title="Sign out"
-                    >
-                        <LogOut size={16} />
-                    </button>
-                )}
             </div>
         </header>
     )

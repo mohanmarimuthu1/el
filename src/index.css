@@ -1,25 +1,30 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #f0f5ff;
-  --color-brand-100: #dce6fd;
-  --color-brand-200: #bfcefb;
-  --color-brand-300: #93aaf7;
-  --color-brand-400: #6078f0;
-  --color-brand-500: #3b4ee8;
-  --color-brand-600: #2c36d0;
-  --color-brand-700: #262caa;
-  --color-brand-800: #24278a;
-  --color-brand-900: #22266e;
-  --color-brand-950: #171844;
+  /* Electric Indigo Brand Palette */
+  --color-brand-50: #f5f7ff;
+  --color-brand-100: #ebf0fe;
+  --color-brand-200: #dae3fd;
+  --color-brand-300: #bdccfb;
+  --color-brand-400: #93aaf7;
+  --color-brand-500: #4f46e5; /* Electric Indigo */
+  --color-brand-600: #4338ca;
+  --color-brand-700: #3730a3;
+  --color-brand-800: #312e81;
+  --color-brand-900: #23215c;
+  --color-brand-950: #1a1942;
 
-  --color-accent-400: #f59e0b;
-  --color-accent-500: #d97706;
+  --color-accent-400: #fbbf24;
+  --color-accent-500: #f59e0b;
 
+  /* Modern Slate Surface Palette */
   --color-surface-50: #f8fafc;
   --color-surface-100: #f1f5f9;
   --color-surface-200: #e2e8f0;
   --color-surface-300: #cbd5e1;
+  --color-surface-400: #94a3b8;
+  --color-surface-500: #64748b;
+  --color-surface-600: #475569;
   --color-surface-700: #334155;
   --color-surface-800: #1e293b;
   --color-surface-900: #0f172a;
@@ -29,6 +34,26 @@
 
 @layer base {
   body {
-    @apply bg-surface-50 text-surface-800 font-sans antialiased;
+    @apply bg-surface-50 text-surface-900 font-sans antialiased selection:bg-brand-100 selection:text-brand-900;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
+  }
+  
+  .glass-dark {
+    @apply bg-surface-900/80 backdrop-blur-xl border border-white/5 shadow-2xl;
+  }
+
+  .card-premium {
+    @apply bg-white rounded-3xl border border-surface-200/50 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-brand-500/5 hover:-translate-y-1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
   }
 }

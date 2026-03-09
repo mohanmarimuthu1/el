@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { formatTimestamp } from '@/lib/formatTime'
-import { Truck, Plus, Loader2, AlertTriangle, CheckCircle2, Package, ChevronDown } from 'lucide-react'
+import { Truck, Plus, Loader2, AlertTriangle, CheckCircle2, Package, X, Trash2, ArrowRight, Clock } from 'lucide-react'
 
 export default function DispatchPage() {
     const { canManageInventory, user, role } = useAuth()
@@ -16,8 +16,7 @@ export default function DispatchPage() {
 
     // Form state
     const [projectName, setProjectName] = useState('')
-    const [selectedItemId, setSelectedItemId] = useState('')
-    const [quantity, setQuantity] = useState('')
+    const [selectedMaterials, setSelectedMaterials] = useState([{ inventory_id: '', quantity: '' }])
 
     useEffect(() => {
         fetchData()
@@ -26,7 +25,7 @@ export default function DispatchPage() {
     async function fetchData() {
         setLoading(true)
         const [invRes, dispRes] = await Promise.all([
-            supabase.from('inventory').select('id, manufacturer, model_number, description, stock_count').order('manufacturer'),
+            supabase.from('inventory').select('*').order('manufacturer'),
             supabase.from('dispatches').select('*').order('created_at', { ascending: false }).limit(50),
         ])
         if (invRes.data) setInventory(invRes.data)
@@ -34,303 +33,292 @@ export default function DispatchPage() {
         setLoading(false)
     }
 
-    const selectedItem = inventory.find(i => i.id === selectedItemId)
+    const addMaterialRow = () => {
+        setSelectedMaterials([...selectedMaterials, { inventory_id: '', quantity: '' }])
+    }
+
+    const removeMaterialRow = (index) => {
+        const updated = selectedMaterials.filter((_, i) => i !== index)
+        setSelectedMaterials(updated)
+    }
+
+    const updateMaterial = (index, field, value) => {
+        const updated = [...selectedMaterials]
+        updated[index][field] = value
+        setSelectedMaterials(updated)
+    }
 
     async function handleDispatch(e) {
         e.preventDefault()
         setError('')
         setSuccess('')
 
-        const qty = parseInt(quantity) || 0
         if (!projectName.trim()) { setError('Project name is required.'); return }
-        if (!selectedItemId) { setError('Select an item from inventory.'); return }
-        if (qty <= 0) { setError('Quantity must be at least 1.'); return }
 
-        // Safety check — re-fetch latest stock to avoid stale data
-        const { data: liveItem, error: fetchErr } = await supabase
-            .from('inventory')
-            .select('stock_count')
-            .eq('id', selectedItemId)
-            .single()
+        // Validate all rows
+        for (const [idx, m] of selectedMaterials.entries()) {
+            if (!m.inventory_id) { setError(`Specify an item for row ${idx + 1}.`); return }
+            const qty = parseInt(m.quantity) || 0
+            if (qty <= 0) { setError(`Quantity for row ${idx + 1} must be at least 1.`); return }
 
-        if (fetchErr || !liveItem) {
-            setError('Failed to verify stock. Try again.')
-            return
-        }
-
-        if (qty > liveItem.stock_count) {
-            setError(`🔒 SUPER SECURE — Insufficient stock! Available: ${liveItem.stock_count}, Requested: ${qty}. Cannot dispatch more than current stock.`)
-            return
+            const item = inventory.find(i => i.id === m.inventory_id)
+            if (qty > (item.stock_count || item.current_stock || 0)) {
+                setError(`Insufficient stock for ${item.model_number || item.item_name}!`);
+                return
+            }
         }
 
         setSubmitting(true)
 
-        // 1. Insert dispatch record
-        const { error: insertErr } = await supabase.from('dispatches').insert({
-            project_name: projectName.trim(),
-            inventory_id: selectedItemId,
-            item_name: selectedItem.model_number,
-            manufacturer: selectedItem.manufacturer,
-            quantity_dispatched: qty,
-            dispatched_by: user?.name || 'Demo User',
-        })
+        try {
+            for (const m of selectedMaterials) {
+                const qty = parseInt(m.quantity)
+                const selectedItem = inventory.find(i => i.id === m.inventory_id)
 
-        if (insertErr) {
-            console.error('Dispatch insert failed:', insertErr)
-            setError('Dispatch failed. Please try again.')
+                // 1. Insert dispatch record
+                const { error: insertErr } = await supabase.from('dispatches').insert({
+                    project_name: projectName.trim(),
+                    inventory_id: m.inventory_id,
+                    item_name: selectedItem.model_number || selectedItem.item_name,
+                    manufacturer: selectedItem.manufacturer,
+                    quantity_dispatched: qty,
+                    dispatched_by: user?.name || user?.email || 'Demo User',
+                })
+                if (insertErr) throw insertErr
+
+                // 2. Subtract from inventory stock
+                // Note: using 'current_stock' as per the latest schema understanding from the previous session summary
+                const currentStock = selectedItem.current_stock ?? selectedItem.stock_count ?? 0
+                const newStock = currentStock - qty
+                
+                const updateField = selectedItem.current_stock !== undefined ? 'current_stock' : 'stock_count'
+                const { error: updateErr } = await supabase
+                    .from('inventory')
+                    .update({ [updateField]: newStock, updated_at: new Date().toISOString() })
+                    .eq('id', m.inventory_id)
+                if (updateErr) throw updateErr
+
+                // 3. Audit log
+                await supabase.from('activity_logs').insert({
+                    user_name: user?.name || user?.email || 'Demo User',
+                    user_role: role,
+                    action: `Dispatched ${qty} × ${selectedItem.model_number || selectedItem.item_name} to "${projectName.trim()}"`,
+                    entity_type: 'dispatch',
+                    entity_id: m.inventory_id,
+                })
+
+                // 4. Log stock adjustment
+                await supabase.from('stock_adjustments').insert({
+                    inventory_id: m.inventory_id,
+                    previous_stock: currentStock,
+                    new_stock: newStock,
+                    reason: `Dispatch: ${projectName.trim()}`,
+                    changed_by: user?.name || user?.email || 'Demo User',
+                })
+            }
+
+            setSuccess(`✅ Dispatched ${selectedMaterials.length} items successfully!`)
+            setProjectName('')
+            setSelectedMaterials([{ inventory_id: '', quantity: '' }])
+            setFormOpen(false)
+            fetchData()
+        } catch (err) {
+            console.error('Dispatch failed:', err)
+            setError(`Dispatch failed: ${err.message}`)
+        } finally {
             setSubmitting(false)
-            return
         }
-
-        // 2. Subtract from inventory stock
-        const newStock = liveItem.stock_count - qty
-        const { error: updateErr } = await supabase
-            .from('inventory')
-            .update({ stock_count: newStock, updated_at: new Date().toISOString() })
-            .eq('id', selectedItemId)
-
-        if (updateErr) {
-            console.error('Stock update failed:', updateErr)
-        }
-
-        // 3. Audit log
-        await supabase.from('activity_logs').insert({
-            user_name: user?.name || 'Demo User',
-            user_role: role,
-            action: `Dispatched ${qty} × ${selectedItem.model_number} (${selectedItem.manufacturer}) to project "${projectName.trim()}" — Stock: ${liveItem.stock_count} → ${newStock}`,
-            entity_type: 'dispatch',
-            entity_id: selectedItemId,
-        })
-
-        // 4. Log stock adjustment
-        await supabase.from('stock_adjustments').insert({
-            inventory_id: selectedItemId,
-            previous_stock: liveItem.stock_count,
-            new_stock: newStock,
-            reason: `Dispatched to project: ${projectName.trim()}`,
-            changed_by: user?.name || 'Demo User',
-        })
-
-        setSuccess(`✅ Dispatched ${qty} × ${selectedItem.model_number} to "${projectName.trim()}"`)
-        setProjectName('')
-        setSelectedItemId('')
-        setQuantity('')
-        setFormOpen(false)
-        setSubmitting(false)
-        fetchData()
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-surface-900 tracking-tight flex items-center gap-2">
-                        <Truck size={22} className="text-brand-500" />
-                        Dispatch
-                    </h2>
-                    <p className="text-sm text-surface-700/60 mt-0.5">Outbound material dispatch & tracking</p>
+                    <h2 className="text-3xl font-extrabold text-surface-900 tracking-tighter">Material Dispatch</h2>
+                    <p className="text-sm text-surface-400 font-medium mt-2">
+                        Execute and track project material allocations.
+                    </p>
                 </div>
                 {canManageInventory && (
                     <button
                         onClick={() => { setFormOpen(!formOpen); setError(''); setSuccess('') }}
-                        className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-all ${formOpen
-                            ? 'bg-surface-200 text-surface-700 hover:bg-surface-300'
-                            : 'text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40'
+                        className={`flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all duration-300 active:scale-95 ${formOpen
+                            ? 'bg-surface-100 text-surface-600 hover:bg-surface-200'
+                            : 'bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-xl shadow-brand-500/20 hover:shadow-brand-500/40 hover:-translate-y-1'
                             }`}
                     >
-                        <Plus size={15} className={formOpen ? 'rotate-45 transition-transform' : 'transition-transform'} />
-                        {formOpen ? 'Cancel' : 'New Dispatch'}
+                        {formOpen ? (
+                            <><X size={18} /> Cancel</>
+                        ) : (
+                            <><Plus size={18} /> New Dispatch</>
+                        )}
                     </button>
                 )}
             </div>
 
-            {/* Success/Error toasts */}
-            {success && (
-                <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium animate-slide-in">
-                    <CheckCircle2 size={16} />
-                    {success}
+            {/* Toasts */}
+            {(success || error) && (
+                <div className="space-y-3">
+                    {success && (
+                        <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold shadow-sm animate-in zoom-in-95">
+                            <CheckCircle2 size={20} />
+                            {success}
+                        </div>
+                    )}
+                    {error && (
+                        <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm font-bold shadow-sm animate-in zoom-in-95">
+                            <AlertTriangle size={20} />
+                            {error}
+                        </div>
+                    )}
                 </div>
             )}
-            {error && (
-                <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium animate-slide-in">
-                    <AlertTriangle size={16} />
-                    {error}
-                </div>
-            )}
 
-            {/* Dispatch Form */}
-            {formOpen && canManageInventory && (
-                <form onSubmit={handleDispatch} className="rounded-2xl border border-brand-200 bg-gradient-to-br from-white to-brand-50/30 p-6 shadow-sm space-y-5"
-                    style={{ animation: 'slideDown 0.2s ease-out' }}>
-                    <div className="flex items-center gap-2 pb-3 border-b border-surface-200">
-                        <Package size={18} className="text-brand-500" />
-                        <h3 className="text-sm font-bold text-surface-800 uppercase tracking-wider">Dispatch Material</h3>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Project Name */}
-                        <div className="sm:col-span-2">
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Project Name</label>
-                            <input
-                                type="text"
-                                value={projectName}
-                                onChange={e => setProjectName(e.target.value)}
-                                placeholder="e.g. Furnace Installation — Phase 2"
-                                className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                                required
-                            />
-                        </div>
-
-                        {/* Item Selection */}
-                        <div>
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Select Item</label>
-                            <div className="relative">
-                                <select
-                                    value={selectedItemId}
-                                    onChange={e => setSelectedItemId(e.target.value)}
-                                    className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all appearance-none pr-8"
-                                    required
-                                >
-                                    <option value="">— Select from inventory —</option>
-                                    {inventory.filter(i => i.stock_count > 0).map(item => (
-                                        <option key={item.id} value={item.id}>
-                                            {item.model_number} — {item.description || item.manufacturer} (Stock: {item.stock_count})
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none" />
-                            </div>
-                        </div>
-
-                        {/* Manufacturer (auto-filled) */}
-                        <div>
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Manufacturer</label>
-                            <div className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-surface-50 text-surface-600 font-medium">
-                                {selectedItem?.manufacturer || '—'}
-                                {selectedItem && (
-                                    <span className="text-[10px] text-surface-400 ml-2">Auto-filled</span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Quantity */}
-                        <div>
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
-                                Quantity (NOS)
-                                {selectedItem && (
-                                    <span className="ml-2 text-[10px] font-normal text-surface-400">
-                                        Available: <span className={selectedItem.stock_count > 0 ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}>{selectedItem.stock_count}</span>
-                                    </span>
-                                )}
+            {/* Form */}
+            {formOpen && (
+                <div className="bg-white rounded-[2.5rem] border border-surface-200/50 p-8 md:p-10 shadow-2xl shadow-surface-900/5 animate-in slide-in-from-top-4 duration-500">
+                    <form onSubmit={handleDispatch} className="space-y-10">
+                        <div className="space-y-2 max-w-lg">
+                            <label className="text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em] ml-1">
+                                Project / Client Name
                             </label>
                             <input
-                                type="number"
-                                min="1"
-                                max={selectedItem?.stock_count || 9999}
-                                value={quantity}
-                                onChange={e => setQuantity(e.target.value)}
-                                placeholder="Enter quantity"
-                                className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                                type="text"
+                                placeholder="Where are these materials going?"
+                                value={projectName}
+                                onChange={(e) => setProjectName(e.target.value)}
+                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-4 text-sm font-semibold text-surface-900 placeholder:text-surface-300 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all shadow-sm"
                                 required
                             />
                         </div>
 
-                        {/* Stock Warning */}
-                        <div className="flex items-end">
-                            {selectedItem && parseInt(quantity) > selectedItem.stock_count && (
-                                <div className="flex items-center gap-1.5 text-red-600 text-xs font-semibold bg-red-50 px-3 py-2.5 rounded-xl border border-red-200">
-                                    <AlertTriangle size={13} />
-                                    Exceeds available stock!
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between ml-1">
+                                <label className="text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">
+                                    Materials List
+                                </label>
+                            </div>
 
-                    {/* Submit */}
-                    <div className="flex justify-end pt-2">
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-xl text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all disabled:opacity-50"
-                        >
-                            {submitting ? (
-                                <><Loader2 size={15} className="animate-spin" /> Dispatching...</>
-                            ) : (
-                                <><Truck size={15} /> Dispatch</>
-                            )}
-                        </button>
-                    </div>
-                </form>
+                            <div className="space-y-4">
+                                {selectedMaterials.map((mat, index) => {
+                                    const item = inventory.find(i => i.id === mat.inventory_id)
+                                    return (
+                                        <div key={index} className="group flex flex-col md:flex-row items-start md:items-center gap-4 p-5 rounded-3xl bg-surface-50/50 border border-surface-200/50 transition-all duration-300 hover:bg-white hover:shadow-xl">
+                                            <div className="flex-1 w-full space-y-1.5">
+                                                <select
+                                                    value={mat.inventory_id}
+                                                    onChange={(e) => updateMaterial(index, 'inventory_id', e.target.value)}
+                                                    className="w-full bg-transparent border-none p-0 text-sm font-bold text-surface-900 focus:ring-0 cursor-pointer"
+                                                    required
+                                                >
+                                                    <option value="">Select Material...</option>
+                                                    {inventory.map((i) => (
+                                                        <option key={i.id} value={i.id}>
+                                                            {i.item_name || i.model_number} — Stock: {i.current_stock ?? i.stock_count}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {item && (
+                                                    <div className="text-[10px] text-surface-400 font-bold uppercase tracking-tight">
+                                                        {item.manufacturer} — {item.description?.substring(0, 50)}...
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="w-full md:w-32">
+                                                <input
+                                                    type="number"
+                                                    placeholder="Qty"
+                                                    value={mat.quantity}
+                                                    onChange={(e) => updateMaterial(index, 'quantity', e.target.value)}
+                                                    className="w-full bg-white border border-surface-200/80 rounded-xl px-4 py-2 text-sm font-bold text-surface-900 focus:ring-4 focus:ring-brand-500/10 transition-all"
+                                                    required
+                                                    min="1"
+                                                />
+                                            </div>
+
+                                            {selectedMaterials.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeMaterialRow(index)}
+                                                    className="p-2.5 rounded-xl text-surface-400 hover:text-red-500 hover:bg-red-50 transition-all active:scale-90"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={addMaterialRow}
+                                className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface-100 text-surface-600 text-xs font-bold hover:bg-surface-200 transition-all active:scale-95 border border-dashed border-surface-300"
+                            >
+                                <Plus size={14} /> Add Item
+                            </button>
+                        </div>
+
+                        <div className="pt-6 border-t border-surface-100 flex justify-end">
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                className="flex items-center gap-3 px-10 py-4 rounded-[2rem] bg-gradient-to-br from-brand-600 to-brand-800 text-white font-bold text-sm shadow-2xl shadow-brand-500/30 hover:shadow-brand-500/50 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {submitting ? <Loader2 size={18} className="animate-spin" /> : <Truck size={18} />}
+                                {submitting ? 'Dispatching...' : 'Execute Dispatch'}
+                                <ArrowRight size={18} />
+                            </button>
+                        </div>
+                    </form>
+                </div>
             )}
 
-            {/* Dispatch History Table */}
-            <div className="rounded-2xl border border-surface-200 bg-white overflow-hidden shadow-sm">
+            {/* History */}
+            <div className="bg-white rounded-[2.5rem] border border-surface-200/50 overflow-hidden shadow-xl shadow-surface-900/[0.02]">
+                <div className="px-8 py-6 border-b border-surface-100 bg-surface-50/30 flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-surface-900 tracking-tight">Dispatch Logs</h3>
+                    <Clock size={18} className="text-surface-400" />
+                </div>
+
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-surface-200 bg-surface-50/80">
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Project</th>
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Item</th>
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Manufacturer</th>
-                                <th className="text-center px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Qty</th>
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Dispatched At</th>
+                            <tr className="bg-surface-50/50">
+                                <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Material</th>
+                                <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Project</th>
+                                <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Qty</th>
+                                <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Date</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {loading ? (
-                                Array.from({ length: 4 }).map((_, i) => (
-                                    <tr key={i} className="border-b border-surface-100">
-                                        {Array.from({ length: 5 }).map((_, j) => (
-                                            <td key={j} className="px-5 py-3.5">
-                                                <div className="h-4 bg-surface-200 rounded animate-pulse w-24" />
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))
-                            ) : dispatches.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-5 py-12 text-center text-surface-700/40">
-                                        <Truck size={36} className="mx-auto mb-2 opacity-30" />
-                                        <p className="font-medium">No dispatches yet</p>
-                                        <p className="text-xs mt-1">Click "New Dispatch" to send material to a project.</p>
+                        <tbody className="divide-y divide-surface-100 font-medium">
+                            {dispatches.map((d) => (
+                                <tr key={d.id} className="group hover:bg-surface-50/50 transition-all duration-300">
+                                    <td className="px-8 py-6">
+                                        <div className="text-sm font-bold text-surface-900 group-hover:text-brand-600 transition-colors">
+                                            {d.item_name}
+                                        </div>
+                                        <div className="text-[10px] text-surface-400 font-bold uppercase mt-0.5">{d.manufacturer}</div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full bg-surface-100 text-[11px] font-bold text-surface-600">
+                                            {d.project_name}
+                                        </span>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="text-sm font-black text-surface-900">{d.quantity_dispatched}</div>
+                                    </td>
+                                    <td className="px-8 py-6 text-xs text-surface-500 whitespace-nowrap">
+                                        {formatTimestamp(d.created_at)}
                                     </td>
                                 </tr>
-                            ) : (
-                                dispatches.map(d => (
-                                    <tr key={d.id} className="border-b border-surface-100 hover:bg-brand-50/30 transition-colors">
-                                        <td className="px-5 py-3.5 font-medium text-surface-800">{d.project_name}</td>
-                                        <td className="px-5 py-3.5 font-mono text-surface-700">{d.item_name || '—'}</td>
-                                        <td className="px-5 py-3.5 text-surface-700">{d.manufacturer || '—'}</td>
-                                        <td className="px-5 py-3.5 text-center">
-                                            <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
-                                                {d.quantity_dispatched}
-                                            </span>
-                                        </td>
-                                        <td className="px-5 py-3.5 text-xs text-surface-700/50 font-mono whitespace-nowrap">{formatTimestamp(d.created_at)}</td>
-                                    </tr>
-                                ))
-                            )}
+                            ))}
                         </tbody>
                     </table>
                 </div>
-                {!loading && (
-                    <div className="px-5 py-3 bg-surface-50/50 border-t border-surface-200 text-xs text-surface-700/50 font-medium">
-                        Showing {dispatches.length} dispatch{dispatches.length !== 1 ? 'es' : ''}
-                    </div>
-                )}
             </div>
-
-            {/* Animations */}
-            <style>{`
-                @keyframes slideDown {
-                    from { opacity: 0; transform: translateY(-8px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .animate-slide-in {
-                    animation: slideDown 0.2s ease-out;
-                }
-            `}</style>
         </div>
     )
 }

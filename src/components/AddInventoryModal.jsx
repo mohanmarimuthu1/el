@@ -129,7 +129,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                         </div>
                     </div>
 
-                    <div>
+                    {/* <div>
                         <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Description</label>
                         <input
                             value={form.description}
@@ -137,7 +137,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                             placeholder="e.g. MCB - 25A, 3 POLE"
                             className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
                         />
-                    </div>
+                    </div> */}
 
                     {error && (
                         <div className="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium">{error}</div>

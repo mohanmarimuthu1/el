@@ -10,6 +10,7 @@ import VendorManagementPage from '@/pages/VendorManagementPage'
 import PublicInventoryPage from '@/pages/PublicInventoryPage'
 import AuditLogPage from '@/pages/AuditLogPage'
 import DispatchPage from '@/pages/DispatchPage'
+import ProjectInventoryPage from '@/pages/ProjectInventoryPage'
 import AdminUserManagementPage from '@/pages/AdminUserManagementPage'
 
 // Guard: If not logged in, redirect to /login
@@ -84,6 +85,7 @@ function AppRoutes() {
         <Route path="vendors" element={<VendorManagementPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
         <Route path="dispatch" element={<DispatchPage />} />
+        <Route path="projects" element={<ProjectInventoryPage />} />
         <Route path="user-management" element={<AdminUserManagementPage />} />
       </Route>
     </Routes>

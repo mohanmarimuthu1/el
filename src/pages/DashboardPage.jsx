@@ -53,13 +53,13 @@ export default function DashboardPage() {
 
     const cards = [
         {
-            title: 'Total Stock',
+            title: 'Inventory Stock',
             value: stats.totalStock.toLocaleString(),
             icon: Package,
-            gradient: 'from-blue-500 to-indigo-600',
-            shadow: 'shadow-blue-500/20',
-            bgLight: 'bg-blue-50',
-            textLight: 'text-blue-600',
+            gradient: 'from-brand-500 to-brand-600',
+            glow: 'shadow-brand-500/20',
+            bgLight: 'bg-brand-50',
+            textLight: 'text-brand-600',
             show: true,
         },
         {
@@ -67,27 +67,27 @@ export default function DashboardPage() {
             value: stats.pendingApprovals.toLocaleString(),
             icon: Clock,
             gradient: 'from-amber-400 to-orange-500',
-            shadow: 'shadow-amber-500/20',
+            glow: 'shadow-amber-500/20',
             bgLight: 'bg-amber-50',
             textLight: 'text-amber-600',
             show: true,
         },
         {
-            title: 'Total Vendors',
+            title: 'Active Vendors',
             value: stats.totalVendors.toLocaleString(),
             icon: Users,
             gradient: 'from-emerald-400 to-teal-500',
-            shadow: 'shadow-emerald-500/20',
+            glow: 'shadow-emerald-500/20',
             bgLight: 'bg-emerald-50',
             textLight: 'text-emerald-600',
             show: true,
         },
         {
             title: 'Monthly Spend',
-            value: '₹' + stats.monthlySpend.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+            value: '₹' + stats.monthlySpend.toLocaleString('en-IN', { minimumFractionDigits: 0 }),
             icon: DollarSign,
             gradient: 'from-violet-500 to-purple-600',
-            shadow: 'shadow-violet-500/20',
+            glow: 'shadow-violet-500/20',
             bgLight: 'bg-violet-50',
             textLight: 'text-violet-600',
             show: canViewFinancials,
@@ -97,43 +97,44 @@ export default function DashboardPage() {
     const visibleCards = cards.filter(c => c.show)
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-10 animate-in fade-in duration-700">
             {/* Page title */}
             <div>
-                <h2 className="text-2xl font-bold text-surface-900 tracking-tight">Dashboard</h2>
-                <p className="text-sm text-surface-700/60 mt-1">
-                    Welcome back — here's an overview of your operations.
+                <h2 className="text-3xl font-extrabold text-surface-900 tracking-tighter">Overview</h2>
+                <p className="text-sm text-surface-400 font-medium mt-2">
+                    Operational pulse and key performance metrics.
                 </p>
             </div>
 
             {/* Stat cards */}
-            <div className={`grid gap-5 ${visibleCards.length === 4 ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'}`}>
-                {visibleCards.map(({ title, value, icon: Icon, gradient, shadow, bgLight, textLight }) => (
+            <div className={`grid gap-6 ${visibleCards.length === 4 ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'}`}>
+                {visibleCards.map(({ title, value, icon: Icon, gradient, glow, bgLight, textLight }) => (
                     <div
                         key={title}
-                        className={`relative overflow-hidden rounded-2xl bg-white border border-surface-200/60 p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 ${shadow}`}
+                        className={`group relative overflow-hidden rounded-[2.5rem] bg-white border border-surface-200/50 p-7 transition-all duration-500 hover:shadow-2xl hover:shadow-brand-500/10 hover:-translate-y-2`}
                     >
                         {/* Background decoration */}
-                        <div className={`absolute -top-4 -right-4 w-24 h-24 rounded-full bg-gradient-to-br ${gradient} opacity-10 blur-xl`} />
+                        <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full bg-gradient-to-br ${gradient} opacity-[0.03] blur-2xl group-hover:opacity-10 transition-opacity duration-500`} />
 
-                        <div className="flex items-start justify-between relative">
-                            <div className="space-y-3">
-                                <div className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold ${bgLight} ${textLight}`}>
-                                    <Icon size={13} />
-                                    {title}
+                        <div className="flex flex-col gap-6 relative">
+                            <div className="flex items-center justify-between">
+                                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} shadow-lg ${glow} transition-transform duration-500 group-hover:rotate-[10deg]`}>
+                                    <Icon size={20} className="text-white" />
                                 </div>
-                                <div className={`text-3xl font-extrabold tracking-tight ${loading ? 'animate-pulse text-surface-300' : 'text-surface-900'}`}>
+                                <div className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${bgLight} ${textLight}`}>
+                                    {title}
+                                    <ArrowUpRight size={12} className="opacity-50" />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-1">
+                                <div className={`text-4xl font-extrabold tracking-tighter ${loading ? 'animate-pulse text-surface-200' : 'text-surface-900'}`}>
                                     {loading ? '—' : value}
                                 </div>
+                                <div className="text-[10px] font-bold text-surface-400 uppercase tracking-widest">
+                                    {loading ? 'Fetching records...' : 'Real-time update'}
+                                </div>
                             </div>
-                            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} shadow-lg ${shadow}`}>
-                                <TrendingUp size={18} className="text-white" />
-                            </div>
-                        </div>
-
-                        <div className="mt-3 flex items-center gap-1 text-xs text-surface-700/50 font-medium">
-                            <ArrowUpRight size={12} className="text-emerald-500" />
-                            Live from Supabase
                         </div>
                     </div>
                 ))}
@@ -141,14 +142,14 @@ export default function DashboardPage() {
 
             {/* Role notice for supervisors */}
             {!canViewFinancials && (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 mt-0.5">
-                        <Clock size={16} className="text-amber-600" />
+                <div className="rounded-3xl bg-amber-50/50 border border-amber-200/50 p-6 flex items-start gap-4 backdrop-blur-sm">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100/80 mt-0.5">
+                        <Clock size={18} className="text-amber-600" />
                     </div>
                     <div>
-                        <p className="text-sm font-semibold text-amber-800">Restricted View</p>
-                        <p className="text-xs text-amber-700/70 mt-0.5">
-                            Financial data (prices, GST, monthly spend) is hidden for the <span className="font-semibold capitalize">{role}</span> role. Contact your manager for full access.
+                        <p className="text-sm font-bold text-amber-900 uppercase tracking-tight">Access Restricted</p>
+                        <p className="text-xs text-amber-700/60 mt-1 leading-relaxed">
+                            Financial details and spend analytics are currently hidden for the <span className="font-bold text-amber-700 underline decoration-amber-300 decoration-2 underline-offset-2 capitalize">{role}</span> role. Contact an administrator to upgrade your permissions.
                         </p>
                     </div>
                 </div>
