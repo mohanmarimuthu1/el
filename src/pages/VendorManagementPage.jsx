@@ -5,25 +5,66 @@ import { formatTimestamp } from '@/lib/formatTime'
 import { Users, Search, RefreshCw, Trophy } from 'lucide-react'
 import VendorQuoteSection from '@/components/VendorQuoteSection'
 
-export default function VendorManagementPage() {
-    const { canViewFinancials } = useAuth()
-    const [data, setData] = useState([])
+export default function VendorManagementPage({ selectedProjectId }) {
+    const { user, canViewFinancials } = useAuth()
+    const [quotes, setQuotes] = useState([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+    const [formOpen, setFormOpen] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
+    
+    // Form state
+    const [vendorName, setVendorName] = useState('')
+    const [itemName, setItemName] = useState('')
+    const [price, setPrice] = useState('')
+    const [validUntil, setValidUntil] = useState('')
 
-    useEffect(() => { fetchVendors() }, [])
+    useEffect(() => {
+        fetchQuotes()
+    }, [selectedProjectId])
 
-    async function fetchVendors() {
+    async function fetchQuotes() {
         setLoading(true)
-        const { data: rows, error } = await supabase
+        let query = supabase
             .from('vendor_quotes')
             .select('*')
             .order('created_at', { ascending: false })
-        if (!error) setData(rows || [])
+        
+        if (selectedProjectId) {
+            query = query.eq('project_id', selectedProjectId)
+        }
+
+        const { data, error } = await query
+        if (!error && data) setQuotes(data)
         setLoading(false)
     }
 
-    const filtered = data.filter(row =>
+    async function handleAddQuote(e) {
+        e.preventDefault()
+        setSubmitting(true)
+        const { error } = await supabase
+            .from('vendor_quotes')
+            .insert({
+                vendor_name: vendorName,
+                item_name: itemName,
+                price: parseFloat(price),
+                valid_until: validUntil,
+                submitted_by: user.email,
+                project_id: selectedProjectId // Associate with selected project
+            })
+        
+        if (!error) {
+            setFormOpen(false)
+            setVendorName('')
+            setItemName('')
+            setPrice('')
+            setValidUntil('')
+            fetchQuotes()
+        }
+        setSubmitting(false)
+    }
+
+    const filtered = quotes.filter(row =>
         [row.vendor_name, row.product_name]
             .some(v => v?.toLowerCase().includes(search.toLowerCase()))
     )
@@ -53,7 +94,7 @@ export default function VendorManagementPage() {
                         />
                     </div>
                     <button
-                        onClick={fetchVendors}
+                        onClick={fetchQuotes}
                         className="p-2 rounded-xl border border-surface-200 bg-white hover:bg-surface-50 text-surface-700 transition-colors"
                         title="Refresh"
                     >
@@ -63,7 +104,7 @@ export default function VendorManagementPage() {
             </div>
 
             {/* Inline Vendor Quote Section */}
-            <VendorQuoteSection onSuccess={fetchVendors} />
+            <VendorQuoteSection onSuccess={fetchQuotes} selectedProjectId={selectedProjectId} />
 
             {/* Existing Quotes Table */}
             <div className="rounded-2xl border border-surface-200 bg-white overflow-hidden shadow-sm">
@@ -146,7 +187,7 @@ export default function VendorManagementPage() {
                 </div>
                 {!loading && (
                     <div className="px-5 py-3 bg-surface-50/50 border-t border-surface-200 text-xs text-surface-700/50 font-medium">
-                        Showing {filtered.length} of {data.length} quotes
+                        Showing {filtered.length} of {quotes.length} quotes
                     </div>
                 )}
             </div>

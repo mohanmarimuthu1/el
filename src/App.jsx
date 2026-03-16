@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthProvider'
 import { useAuth } from '@/hooks/useAuth'
@@ -12,6 +13,7 @@ import AuditLogPage from '@/pages/AuditLogPage'
 import DispatchPage from '@/pages/DispatchPage'
 import ProjectInventoryPage from '@/pages/ProjectInventoryPage'
 import AdminUserManagementPage from '@/pages/AdminUserManagementPage'
+import ProjectsPage from '@/pages/ProjectsPage'
 
 // Guard: If not logged in, redirect to /login
 function RequireAuth({ children }) {
@@ -54,49 +56,49 @@ function RedirectIfAuth({ children }) {
   return children
 }
 
-function AppRoutes() {
-  return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="inventory/public" element={<PublicInventoryPage />} />
-      <Route path="inventory/public/:id" element={<PublicInventoryPage />} />
-
-      {/* Login — redirects to dashboard if already signed in */}
-      <Route
-        path="/login"
-        element={
-          <RedirectIfAuth>
-            <LoginPage />
-          </RedirectIfAuth>
-        }
-      />
-
-      {/* Authenticated dashboard routes */}
-      <Route
-        element={
-          <RequireAuth>
-            <DashboardLayout />
-          </RequireAuth>
-        }
-      >
-        <Route index element={<DashboardPage />} />
-        <Route path="inventory" element={<InventoryPage />} />
-        <Route path="purchase-intents" element={<PurchaseIntentsPage />} />
-        <Route path="vendors" element={<VendorManagementPage />} />
-        <Route path="audit-log" element={<AuditLogPage />} />
-        <Route path="dispatch" element={<DispatchPage />} />
-        <Route path="projects" element={<ProjectInventoryPage />} />
-        <Route path="user-management" element={<AdminUserManagementPage />} />
-      </Route>
-    </Routes>
-  )
-}
-
 export default function App() {
+  const [selectedProjectId, setSelectedProjectId] = useState(null)
+
   return (
     <AuthProvider>
       <BrowserRouter>
-        <AppRoutes />
+        <Routes>
+          {/* Public routes */}
+          <Route path="inventory/public" element={<PublicInventoryPage />} />
+          <Route path="inventory/public/:id" element={<PublicInventoryPage />} />
+
+          {/* Login — redirects to dashboard if already signed in */}
+          <Route
+            path="/login"
+            element={
+              <RedirectIfAuth>
+                <LoginPage />
+              </RedirectIfAuth>
+            }
+          />
+
+          {/* Authenticated dashboard routes */}
+          <Route
+            element={
+              <RequireAuth>
+                <DashboardLayout
+                  selectedProjectId={selectedProjectId}
+                  setSelectedProjectId={setSelectedProjectId}
+                />
+              </RequireAuth>
+            }
+          >
+            <Route index element={<DashboardPage />} />
+            <Route path="inventory" element={<InventoryPage />} />
+            <Route path="purchase-intents" element={<PurchaseIntentsPage selectedProjectId={selectedProjectId} />} />
+            <Route path="vendors" element={<VendorManagementPage selectedProjectId={selectedProjectId} />} />
+            <Route path="audit-log" element={<AuditLogPage />} />
+            <Route path="dispatch" element={<DispatchPage selectedProjectId={selectedProjectId} />} />
+            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="project-usage" element={<ProjectInventoryPage selectedProjectId={selectedProjectId} />} />
+            <Route path="user-management" element={<AdminUserManagementPage />} />
+          </Route>
+        </Routes>
       </BrowserRouter>
     </AuthProvider>
   )

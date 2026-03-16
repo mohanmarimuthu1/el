@@ -1,21 +1,38 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid } from 'lucide-react'
+import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 
-const navItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/inventory', label: 'Inventory', sublabel: 'Hardware Tracking', icon: HardDrive },
-    { to: '/purchase-intents', label: 'Purchase Intents', sublabel: 'Ledger', icon: FileText },
-    { to: '/vendors', label: 'Vendor Management', icon: Users, financialOnly: true },
-    { to: '/dispatch', label: 'Dispatch', sublabel: 'Outbound Tracking', icon: Truck },
-    { to: '/projects', label: 'Project Usage', sublabel: 'Material Allocation', icon: LayoutGrid },
-    { to: '/audit-log', label: 'Audit Log', sublabel: 'Activity Trail', icon: ScrollText, ownerOnly: true },
-    { to: '/user-management', label: 'User Management', sublabel: 'Admin Panel', icon: ShieldCheck, adminOrOwner: true },
+const navSections = [
+    {
+        title: 'Core',
+        items: [
+            { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+            { to: '/inventory', label: 'Inventory', sublabel: 'Hardware Tracking', icon: HardDrive },
+        ]
+    },
+    {
+        title: 'Projects',
+        items: [
+            { to: '/projects', label: 'Active Projects', sublabel: 'Manager', icon: Briefcase },
+            { to: '/vendors', label: 'Vendor Management', icon: Users, financialOnly: true },
+            { to: '/dispatch', label: 'Dispatch', sublabel: 'Outbound', icon: Truck },
+            { to: '/purchase-intents', label: 'Purchase Intents', sublabel: 'Ledger', icon: FileText },
+            { to: '/project-usage', label: 'Material Usage', sublabel: 'Allocation', icon: LayoutGrid },
+        ]
+    },
+    {
+        title: 'System',
+        items: [
+            { to: '/audit-log', label: 'Audit Log', sublabel: 'Activity Trail', icon: ScrollText, ownerOnly: true },
+            { to: '/user-management', label: 'User Management', sublabel: 'Admin Panel', icon: ShieldCheck, adminOrOwner: true },
+        ]
+    }
 ]
 
 export default function Sidebar({ open, setOpen }) {
     const { role, canViewFinancials, isAdmin, isOwner } = useAuth()
-    const filteredNav = navItems.filter(item => {
+    
+    const filterItems = (items) => items.filter(item => {
         if (item.adminOnly && !isAdmin) return false
         if (item.adminOrOwner && !isAdmin && !isOwner) return false
         if (item.ownerOnly && role !== 'owner' && !isAdmin) return false
@@ -52,42 +69,53 @@ export default function Sidebar({ open, setOpen }) {
                 </div>
 
                 {/* Nav links */}
-                <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
-                    {filteredNav.map(({ to, label, sublabel, icon: Icon }) => (
-                        <NavLink
-                            key={to}
-                            to={to}
-                            end={to === '/'}
-                            onClick={() => setOpen(false)}
-                            className={({ isActive }) =>
-                                `group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${isActive
-                                    ? 'bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-xl shadow-brand-500/25 translate-x-1'
-                                    : 'text-surface-500 hover:bg-white hover:text-surface-900 hover:shadow-lg hover:shadow-surface-900/5 hover:-translate-y-0.5'
-                                }`
-                            }
-                        >
-                            {({ isActive }) => (
-                                <>
-                                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${isActive ? 'bg-white/20 rotate-[10deg]' : 'bg-surface-50 group-hover:bg-white group-hover:rotate-0'
-                                        }`}>
-                                        <Icon size={18} className={isActive ? 'text-white' : 'text-surface-400 group-hover:text-brand-500'} />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="truncate tracking-tight">{label}</div>
-                                        {sublabel && (
-                                            <div className={`text-[9px] font-bold uppercase tracking-wider opacity-60 ${isActive ? 'text-white' : 'text-surface-400'
-                                                }`}>
-                                                {sublabel}
-                                            </div>
-                                        )}
-                                    </div>
-                                    {isActive && (
-                                        <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-white rounded-full blur-[2px] opacity-40" />
-                                    )}
-                                </>
-                            )}
-                        </NavLink>
-                    ))}
+                <nav className="flex-1 px-4 py-6 space-y-8 overflow-y-auto custom-scrollbar">
+                    {navSections.map((section) => {
+                        const filteredItems = filterItems(section.items)
+                        if (filteredItems.length === 0) return null
+                        
+                        return (
+                            <div key={section.title} className="space-y-3">
+                                <h3 className="px-5 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">
+                                    {section.title}
+                                </h3>
+                                <div className="space-y-1">
+                                    {filteredItems.map(({ to, label, sublabel, icon: Icon }) => (
+                                        <NavLink
+                                            key={to}
+                                            to={to}
+                                            end={to === '/'}
+                                            onClick={() => setOpen(false)}
+                                            className={({ isActive }) =>
+                                                `group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${isActive
+                                                    ? 'bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-xl shadow-brand-500/25 translate-x-1'
+                                                    : 'text-surface-500 hover:bg-white hover:text-surface-900 hover:shadow-lg hover:shadow-surface-900/5 hover:-translate-y-0.5'
+                                                }`
+                                            }
+                                        >
+                                            {({ isActive }) => (
+                                                <>
+                                                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${isActive ? 'bg-white/20 rotate-[10deg]' : 'bg-surface-50 group-hover:bg-white group-hover:rotate-0'
+                                                        }`}>
+                                                        <Icon size={18} className={isActive ? 'text-white' : 'text-surface-400 group-hover:text-brand-500'} />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="truncate tracking-tight">{label}</div>
+                                                        {sublabel && (
+                                                            <div className={`text-[9px] font-bold uppercase tracking-wider opacity-60 ${isActive ? 'text-white' : 'text-surface-400'
+                                                                }`}>
+                                                                {sublabel}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </NavLink>
+                                    ))}
+                                </div>
+                            </div>
+                        )
+                    })}
                 </nav>
 
                 {/* Footer */}

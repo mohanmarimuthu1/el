@@ -5,7 +5,7 @@ import { Plus, Trash2, Loader2, CheckCircle2, Trophy, Send } from 'lucide-react'
 
 const emptyQuote = { vendor_name: '', product_name: '', price_quoted: '', gst_rc: '' }
 
-export default function VendorQuoteSection({ onSuccess }) {
+export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
     const { user } = useAuth()
     const [intents, setIntents] = useState([])
     const [selectedIntent, setSelectedIntent] = useState('')
@@ -15,14 +15,20 @@ export default function VendorQuoteSection({ onSuccess }) {
     const [success, setSuccess] = useState(false)
     const [loadingIntents, setLoadingIntents] = useState(true)
 
-    useEffect(() => { fetchIntents() }, [])
+    useEffect(() => { fetchIntents() }, [selectedProjectId])
 
     async function fetchIntents() {
         setLoadingIntents(true)
-        const { data } = await supabase
+        let query = supabase
             .from('purchase_intents')
             .select('id, model_code, description')
             .order('created_at', { ascending: false })
+        
+        if (selectedProjectId) {
+            query = query.eq('project_id', selectedProjectId)
+        }
+
+        const { data } = await query
         setIntents(data || [])
         setLoadingIntents(false)
     }
@@ -81,6 +87,7 @@ export default function VendorQuoteSection({ onSuccess }) {
             price_quoted: parseFloat(q.price_quoted),
             gst_rc: q.gst_rc.trim() || null,
             is_best_price: i === bestIdx,
+            project_id: selectedProjectId || null,
         }))
 
         const { error: insertError } = await supabase.from('vendor_quotes').insert(rows)

@@ -7,12 +7,14 @@ const ROLE_OPTIONS = [
     { value: 'owner', label: 'Owner', color: 'bg-emerald-100 text-emerald-700 ring-emerald-300' },
     { value: 'manager', label: 'Manager', color: 'bg-blue-100 text-blue-700 ring-blue-300' },
     { value: 'supervisor', label: 'Supervisor', color: 'bg-amber-100 text-amber-700 ring-amber-300' },
+    { value: 'employee', label: 'Employee', color: 'bg-indigo-100 text-indigo-700 ring-indigo-300' },
 ]
 
 const roleBadgeColor = {
     owner: 'bg-emerald-100 text-emerald-700 ring-emerald-300',
     manager: 'bg-blue-100 text-blue-700 ring-blue-300',
     supervisor: 'bg-amber-100 text-amber-700 ring-amber-300',
+    employee: 'bg-indigo-100 text-indigo-700 ring-indigo-300',
     admin: 'bg-rose-100 text-rose-700 ring-rose-300',
 }
 

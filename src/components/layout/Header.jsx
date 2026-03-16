@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Menu, X, LogOut, Shield, ChevronDown } from 'lucide-react'
+import { supabase } from '@/lib/supabaseClient'
+import { Menu, X, LogOut, Shield, ChevronDown, Search, LayoutGrid } from 'lucide-react'
 
-export default function Header({ sidebarOpen, setSidebarOpen }) {
+export default function Header({ sidebarOpen, setSidebarOpen, selectedProjectId, setSelectedProjectId }) {
     const { user, role, canViewFinancials, signOut, setDemoRole, availableRoles } = useAuth()
     const [roleDropdown, setRoleDropdown] = useState(false)
+    const [projects, setProjects] = useState([])
+    const [loadingProjects, setLoadingProjects] = useState(false)
     const navigate = useNavigate()
 
     const roleBadgeColor = {
@@ -15,10 +18,27 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
         admin: 'bg-rose-100 text-rose-700 ring-rose-300',
     }
 
+    useEffect(() => {
+        fetchProjects()
+    }, [])
+
+    async function fetchProjects() {
+        setLoadingProjects(true)
+        const { data, error } = await supabase
+            .from('projects_metadata')
+            .select('id, name')
+            .eq('status', 'Active')
+            .order('name')
+        if (!error) setProjects(data || [])
+        setLoadingProjects(false)
+    }
+
     async function handleSignOut() {
         await signOut()
         navigate('/login', { replace: true })
     }
+
+    const selectedProjectName = projects.find(p => p.id === selectedProjectId)?.name || 'All Projects'
 
     return (
         <header className="sticky top-0 z-40 flex h-20 items-center gap-4 border-b border-white/20 bg-white/70 backdrop-blur-2xl px-6 md:px-10 shadow-sm transition-all duration-300">
@@ -36,24 +56,52 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl shadow-xl shadow-brand-500/10 overflow-hidden bg-white ring-4 ring-white transition-transform duration-500 group-hover:rotate-[10deg]">
                     <img src="/elman-logo.jpeg" alt="Elman" className="w-full h-full object-contain" />
                 </div>
-                <div className="hidden sm:block min-w-0">
+                <div className="hidden lg:block min-w-0">
                     <h1 className="text-xl tracking-tighter leading-none" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
                         <span className="font-extrabold text-[#1a2250]">el</span>
                         <span className="font-extrabold text-[#b91c1c]">man</span>
-                        <span className="text-surface-300 mx-1 font-light">/</span>
-                        <span className="font-semibold text-[#1a2250]/80 text-[0.75em] tracking-wider uppercase">Furnace</span>
                     </h1>
-                    <p className="text-[10px] text-surface-400 font-bold mt-1 tracking-[0.2em] uppercase">
-                        Enterprise Resource Planner
-                    </p>
                 </div>
             </div>
 
-            {/* Spacer */}
-            <div className="flex-1" />
+            {/* Global Project Search */}
+            <div className="hidden md:flex flex-1 items-center max-w-md ml-4">
+                <div className="relative w-full group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400 group-focus-within:text-brand-500 transition-colors pointer-events-none">
+                        <LayoutGrid size={18} />
+                    </div>
+                    <select
+                        value={selectedProjectId || ''}
+                        onChange={(e) => setSelectedProjectId(e.target.value || null)}
+                        className="w-full bg-surface-100 border-none rounded-2xl pl-12 pr-10 py-2.5 text-sm font-bold text-surface-900 appearance-none focus:ring-4 focus:ring-brand-500/10 transition-all cursor-pointer"
+                    >
+                        <option value="">Global Search: All Projects</option>
+                        {projects.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none">
+                        <ChevronDown size={14} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Mobile Project Selector (Icon only) */}
+            <div className="md:hidden flex items-center ml-auto">
+                 <select
+                    value={selectedProjectId || ''}
+                    onChange={(e) => setSelectedProjectId(e.target.value || null)}
+                    className="bg-transparent border-none text-[10px] font-black uppercase tracking-tighter text-brand-600 focus:ring-0"
+                >
+                    <option value="">All Projects</option>
+                    {projects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name.substring(0, 10)}</option>
+                    ))}
+                </select>
+            </div>
 
             {/* Desktop Actions */}
-            <div className="flex items-center gap-3 md:gap-6">
+            <div className="flex items-center gap-3 md:gap-6 ml-auto">
                 {/* Role badge */}
                 <div className="relative">
                     {user ? (
@@ -106,9 +154,6 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
                     <div className="hidden md:block text-right">
                         <div className="text-xs font-bold text-surface-900 truncate max-w-[140px]">
                             {user?.email?.split('@')[0] || 'Demo User'}
-                        </div>
-                        <div className="text-[10px] text-surface-400 font-bold uppercase tracking-tighter">
-                            {canViewFinancials ? 'Full Ledger' : 'Inventory Only'}
                         </div>
                     </div>
                     <div className="group relative">

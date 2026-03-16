@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { formatTimestamp } from '@/lib/formatTime'
 import { Truck, Plus, Loader2, AlertTriangle, CheckCircle2, Package, X, Trash2, ArrowRight, Clock } from 'lucide-react'
 
-export default function DispatchPage() {
+export default function DispatchPage({ selectedProjectId }) {
     const { canManageInventory, user, role } = useAuth()
     const [inventory, setInventory] = useState([])
     const [dispatches, setDispatches] = useState([])
@@ -20,13 +20,19 @@ export default function DispatchPage() {
 
     useEffect(() => {
         fetchData()
-    }, [])
+    }, [selectedProjectId])
 
     async function fetchData() {
         setLoading(true)
+        let dispQuery = supabase.from('dispatches').select('*').order('created_at', { ascending: false }).limit(50)
+        
+        if (selectedProjectId) {
+            dispQuery = dispQuery.eq('project_id', selectedProjectId)
+        }
+
         const [invRes, dispRes] = await Promise.all([
             supabase.from('inventory').select('*').order('manufacturer'),
-            supabase.from('dispatches').select('*').order('created_at', { ascending: false }).limit(50),
+            dispQuery,
         ])
         if (invRes.data) setInventory(invRes.data)
         if (dispRes.data) setDispatches(dispRes.data)
@@ -62,7 +68,7 @@ export default function DispatchPage() {
             if (qty <= 0) { setError(`Quantity for row ${idx + 1} must be at least 1.`); return }
 
             const item = inventory.find(i => i.id === m.inventory_id)
-            if (qty > (item.stock_count || item.current_stock || 0)) {
+            if (qty > (item.current_stock ?? item.stock_count ?? 0)) {
                 setError(`Insufficient stock for ${item.model_number || item.item_name}!`);
                 return
             }
@@ -83,11 +89,11 @@ export default function DispatchPage() {
                     manufacturer: selectedItem.manufacturer,
                     quantity_dispatched: qty,
                     dispatched_by: user?.name || user?.email || 'Demo User',
+                    project_id: selectedProjectId || null,
                 })
                 if (insertErr) throw insertErr
 
                 // 2. Subtract from inventory stock
-                // Note: using 'current_stock' as per the latest schema understanding from the previous session summary
                 const currentStock = selectedItem.current_stock ?? selectedItem.stock_count ?? 0
                 const newStock = currentStock - qty
                 
@@ -105,6 +111,7 @@ export default function DispatchPage() {
                     action: `Dispatched ${qty} × ${selectedItem.model_number || selectedItem.item_name} to "${projectName.trim()}"`,
                     entity_type: 'dispatch',
                     entity_id: m.inventory_id,
+                    project_id: selectedProjectId || null
                 })
 
                 // 4. Log stock adjustment
@@ -125,6 +132,64 @@ export default function DispatchPage() {
         } catch (err) {
             console.error('Dispatch failed:', err)
             setError(`Dispatch failed: ${err.message}`)
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    async function handleReturn(dispatchItem) {
+        if (!confirm(`Return ${dispatchItem.quantity_dispatched} units of ${dispatchItem.item_name} to inventory?`)) return
+        
+        setError('')
+        setSuccess('')
+        setSubmitting(true)
+
+        try {
+            // 1. Fetch current inventory stock
+            const { data: item, error: fetchErr } = await supabase
+                .from('inventory')
+                .select('*')
+                .eq('id', dispatchItem.inventory_id)
+                .single()
+            
+            if (fetchErr) throw fetchErr
+
+            const currentStock = item.current_stock ?? item.stock_count ?? 0
+            const returnQty = dispatchItem.quantity_dispatched
+            const newStock = currentStock + returnQty
+            const updateField = item.current_stock !== undefined ? 'current_stock' : 'stock_count'
+
+            // 2. Update inventory stock
+            const { error: updateErr } = await supabase
+                .from('inventory')
+                .update({ [updateField]: newStock, updated_at: new Date().toISOString() })
+                .eq('id', item.id)
+            if (updateErr) throw updateErr
+
+            // 3. Update dispatch record (mark as returned by setting qty to 0 or deleting)
+            // Strategy: Set quantity_dispatched to 0 and update a 'returned' flag if we had one, 
+            // but for now we'll just set it to 0 and log it.
+            const { error: dispUpdateErr } = await supabase
+                .from('dispatches')
+                .update({ quantity_dispatched: 0, returned_at: new Date().toISOString() })
+                .eq('id', dispatchItem.id)
+            if (dispUpdateErr) throw dispUpdateErr
+
+            // 4. Audit log
+            await supabase.from('activity_logs').insert({
+                user_name: user?.name || user?.email || 'Demo User',
+                user_role: role,
+                action: `Material Return: ${returnQty} × ${dispatchItem.item_name} returned from "${dispatchItem.project_name}"`,
+                entity_type: 'inventory',
+                entity_id: dispatchItem.inventory_id,
+                project_id: dispatchItem.project_id
+            })
+
+            setSuccess('✅ Material returned to inventory successfully!')
+            fetchData()
+        } catch (err) {
+            console.error('Return failed:', err)
+            setError(`Return failed: ${err.message}`)
         } finally {
             setSubmitting(false)
         }
@@ -291,11 +356,12 @@ export default function DispatchPage() {
                                 <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Project</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Qty</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Date</th>
+                                <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em] text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-surface-100 font-medium">
                             {dispatches.map((d) => (
-                                <tr key={d.id} className="group hover:bg-surface-50/50 transition-all duration-300">
+                                <tr key={d.id} className={`group hover:bg-surface-50/50 transition-all duration-300 ${d.quantity_dispatched === 0 ? 'opacity-50 grayscale bg-surface-50/20' : ''}`}>
                                     <td className="px-8 py-6">
                                         <div className="text-sm font-bold text-surface-900 group-hover:text-brand-600 transition-colors">
                                             {d.item_name}
@@ -308,10 +374,22 @@ export default function DispatchPage() {
                                         </span>
                                     </td>
                                     <td className="px-8 py-6">
-                                        <div className="text-sm font-black text-surface-900">{d.quantity_dispatched}</div>
+                                        <div className="text-sm font-black text-surface-900">
+                                            {d.quantity_dispatched === 0 ? 'Returned' : d.quantity_dispatched}
+                                        </div>
                                     </td>
                                     <td className="px-8 py-6 text-xs text-surface-500 whitespace-nowrap">
                                         {formatTimestamp(d.created_at)}
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        {canManageInventory && d.quantity_dispatched > 0 && (
+                                            <button
+                                                onClick={() => handleReturn(d)}
+                                                className="px-3 py-1.5 rounded-xl bg-surface-100 text-[10px] font-black uppercase text-surface-600 hover:bg-brand-50 hover:text-brand-600 transition-all active:scale-95"
+                                            >
+                                                Return
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

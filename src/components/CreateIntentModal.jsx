@@ -5,7 +5,7 @@ import { X, Plus, Loader2, CheckCircle2 } from 'lucide-react'
 
 const UNIT_OPTIONS = ['Nos', 'Kg', 'Mtr', 'Set', 'Pair', 'Ltr']
 
-export default function CreateIntentModal({ open, onClose, onSuccess }) {
+export default function CreateIntentModal({ open, onClose, onSuccess, selectedProjectId }) {
     const { user } = useAuth()
     const [form, setForm] = useState({
         model_code: '',
@@ -42,7 +42,8 @@ export default function CreateIntentModal({ open, onClose, onSuccess }) {
             description: form.description.trim(),
             unit: form.unit,
             quantity_required: Number(form.quantity_required),
-            requested_by: user?.id || null,
+            requested_by: user?.email || null, // Changed from id to email for consistency with other modules
+            project_id: selectedProjectId || null,
             status: 'Pending',
         })
 
