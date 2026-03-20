@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { formatTimestamp } from '@/lib/formatTime'
-import { Truck, Plus, Loader2, AlertTriangle, CheckCircle2, Package, X, Trash2, ArrowRight, Clock } from 'lucide-react'
+import { Truck, Plus, Loader2, AlertTriangle, CheckCircle2, Package, X, Trash2, ArrowRight, Clock, UserCheck } from 'lucide-react'
 
 export default function DispatchPage({ selectedProjectId }) {
     const { canManageInventory, user, role } = useAuth()
@@ -16,11 +16,27 @@ export default function DispatchPage({ selectedProjectId }) {
 
     // Form state
     const [projectName, setProjectName] = useState('')
+    const [selectedProjectName, setSelectedProjectName] = useState('')
+    const [receivedBy, setReceivedBy] = useState('')
     const [selectedMaterials, setSelectedMaterials] = useState([{ inventory_id: '', quantity: '' }])
 
     useEffect(() => {
         fetchData()
+        if (selectedProjectId) {
+            fetchProjectName()
+        } else {
+            setSelectedProjectName('')
+        }
     }, [selectedProjectId])
+
+    async function fetchProjectName() {
+        const { data } = await supabase
+            .from('projects_metadata')
+            .select('name')
+            .eq('id', selectedProjectId)
+            .single()
+        if (data) setSelectedProjectName(data.name)
+    }
 
     async function fetchData() {
         setLoading(true)
@@ -59,7 +75,9 @@ export default function DispatchPage({ selectedProjectId }) {
         setError('')
         setSuccess('')
 
-        if (!projectName.trim()) { setError('Project name is required.'); return }
+        const effectiveProjectName = selectedProjectId ? selectedProjectName : projectName.trim()
+        if (!effectiveProjectName) { setError('Project name is required.'); return }
+        if (!receivedBy.trim()) { setError('Received by name is required.'); return }
 
         // Validate all rows
         for (const [idx, m] of selectedMaterials.entries()) {
@@ -68,8 +86,9 @@ export default function DispatchPage({ selectedProjectId }) {
             if (qty <= 0) { setError(`Quantity for row ${idx + 1} must be at least 1.`); return }
 
             const item = inventory.find(i => i.id === m.inventory_id)
-            if (qty > (item.current_stock ?? item.stock_count ?? 0)) {
-                setError(`Insufficient stock for ${item.model_number || item.item_name}!`);
+            const availableStock = item.stock_count ?? 0
+            if (qty > availableStock) {
+                setError(`Insufficient stock for ${item.model_number || item.item_name}! Available: ${availableStock}`);
                 return
             }
         }
@@ -83,24 +102,34 @@ export default function DispatchPage({ selectedProjectId }) {
 
                 // 1. Insert dispatch record
                 const { error: insertErr } = await supabase.from('dispatches').insert({
-                    project_name: projectName.trim(),
+                    project_name: effectiveProjectName,
                     inventory_id: m.inventory_id,
                     item_name: selectedItem.model_number || selectedItem.item_name,
                     manufacturer: selectedItem.manufacturer,
                     quantity_dispatched: qty,
                     dispatched_by: user?.name || user?.email || 'Demo User',
+                    received_by: receivedBy.trim(),
                     project_id: selectedProjectId || null,
                 })
                 if (insertErr) throw insertErr
 
-                // 2. Subtract from inventory stock
-                const currentStock = selectedItem.current_stock ?? selectedItem.stock_count ?? 0
+                // 2. Fetch fresh stock from DB to avoid using stale local state
+                const { data: freshItem, error: fetchErr } = await supabase
+                    .from('inventory')
+                    .select('stock_count')
+                    .eq('id', m.inventory_id)
+                    .single()
+                if (fetchErr) throw fetchErr
+
+                const currentStock = freshItem.stock_count ?? 0
+                if (qty > currentStock) {
+                    throw new Error(`Insufficient stock for ${selectedItem.model_number || selectedItem.item_name}. Available: ${currentStock}, Requested: ${qty}`)
+                }
+
                 const newStock = currentStock - qty
-                
-                const updateField = selectedItem.current_stock !== undefined ? 'current_stock' : 'stock_count'
                 const { error: updateErr } = await supabase
                     .from('inventory')
-                    .update({ [updateField]: newStock, updated_at: new Date().toISOString() })
+                    .update({ stock_count: newStock, updated_at: new Date().toISOString() })
                     .eq('id', m.inventory_id)
                 if (updateErr) throw updateErr
 
@@ -108,7 +137,7 @@ export default function DispatchPage({ selectedProjectId }) {
                 await supabase.from('activity_logs').insert({
                     user_name: user?.name || user?.email || 'Demo User',
                     user_role: role,
-                    action: `Dispatched ${qty} × ${selectedItem.model_number || selectedItem.item_name} to "${projectName.trim()}"`,
+                    action: `Dispatched ${qty} × ${selectedItem.model_number || selectedItem.item_name} to "${effectiveProjectName}" (Received by: ${receivedBy.trim()})`,
                     entity_type: 'dispatch',
                     entity_id: m.inventory_id,
                     project_id: selectedProjectId || null
@@ -119,13 +148,14 @@ export default function DispatchPage({ selectedProjectId }) {
                     inventory_id: m.inventory_id,
                     previous_stock: currentStock,
                     new_stock: newStock,
-                    reason: `Dispatch: ${projectName.trim()}`,
+                    reason: `Dispatch to "${effectiveProjectName}" — Received by: ${receivedBy.trim()}`,
                     changed_by: user?.name || user?.email || 'Demo User',
                 })
             }
 
             setSuccess(`✅ Dispatched ${selectedMaterials.length} items successfully!`)
             setProjectName('')
+            setReceivedBy('')
             setSelectedMaterials([{ inventory_id: '', quantity: '' }])
             setFormOpen(false)
             fetchData()
@@ -145,25 +175,24 @@ export default function DispatchPage({ selectedProjectId }) {
         setSubmitting(true)
 
         try {
-            // 1. Fetch current inventory stock
+            // 1. Fetch current inventory stock fresh from DB
             const { data: item, error: fetchErr } = await supabase
                 .from('inventory')
-                .select('*')
+                .select('stock_count')
                 .eq('id', dispatchItem.inventory_id)
                 .single()
             
             if (fetchErr) throw fetchErr
 
-            const currentStock = item.current_stock ?? item.stock_count ?? 0
+            const currentStock = item.stock_count ?? 0
             const returnQty = dispatchItem.quantity_dispatched
             const newStock = currentStock + returnQty
-            const updateField = item.current_stock !== undefined ? 'current_stock' : 'stock_count'
 
             // 2. Update inventory stock
             const { error: updateErr } = await supabase
                 .from('inventory')
-                .update({ [updateField]: newStock, updated_at: new Date().toISOString() })
-                .eq('id', item.id)
+                .update({ stock_count: newStock, updated_at: new Date().toISOString() })
+                .eq('id', dispatchItem.inventory_id)
             if (updateErr) throw updateErr
 
             // 3. Update dispatch record (mark as returned by setting qty to 0 or deleting)
@@ -244,18 +273,48 @@ export default function DispatchPage({ selectedProjectId }) {
             {formOpen && (
                 <div className="bg-white rounded-[2.5rem] border border-surface-200/50 p-8 md:p-10 shadow-2xl shadow-surface-900/5 animate-in slide-in-from-top-4 duration-500">
                     <form onSubmit={handleDispatch} className="space-y-10">
-                        <div className="space-y-2 max-w-lg">
-                            <label className="text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em] ml-1">
-                                Project / Client Name
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="Where are these materials going?"
-                                value={projectName}
-                                onChange={(e) => setProjectName(e.target.value)}
-                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-4 text-sm font-semibold text-surface-900 placeholder:text-surface-300 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all shadow-sm"
-                                required
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Project Name — hidden when a project is already selected */}
+                            {!selectedProjectId ? (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em] ml-1">
+                                        Project / Client Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Where are these materials going?"
+                                        value={projectName}
+                                        onChange={(e) => setProjectName(e.target.value)}
+                                        className="w-full bg-surface-50 border-none rounded-2xl px-5 py-4 text-sm font-semibold text-surface-900 placeholder:text-surface-300 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all shadow-sm"
+                                        required
+                                    />
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em] ml-1">
+                                        Project
+                                    </label>
+                                    <div className="w-full bg-brand-50 border border-brand-200 rounded-2xl px-5 py-4 text-sm font-bold text-brand-700 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-brand-500 inline-block"></span>
+                                        {selectedProjectName || 'Loading...'}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Received By */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em] ml-1">
+                                    Received By
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Person receiving the materials"
+                                    value={receivedBy}
+                                    onChange={(e) => setReceivedBy(e.target.value)}
+                                    className="w-full bg-surface-50 border-none rounded-2xl px-5 py-4 text-sm font-semibold text-surface-900 placeholder:text-surface-300 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all shadow-sm"
+                                    required
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-6">
@@ -355,6 +414,7 @@ export default function DispatchPage({ selectedProjectId }) {
                                 <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Material</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Project</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Qty</th>
+                                <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Received By</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">Date</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em] text-center">Actions</th>
                             </tr>
@@ -377,6 +437,16 @@ export default function DispatchPage({ selectedProjectId }) {
                                         <div className="text-sm font-black text-surface-900">
                                             {d.quantity_dispatched === 0 ? 'Returned' : d.quantity_dispatched}
                                         </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        {d.received_by ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <UserCheck size={13} className="text-brand-400 shrink-0" />
+                                                <span className="text-sm font-semibold text-surface-700">{d.received_by}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-surface-300 italic">—</span>
+                                        )}
                                     </td>
                                     <td className="px-8 py-6 text-xs text-surface-500 whitespace-nowrap">
                                         {formatTimestamp(d.created_at)}

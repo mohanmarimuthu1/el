@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
-import { Briefcase, Plus, Loader2, Search, RefreshCw, CheckCircle2, AlertTriangle, X, Calendar, User } from 'lucide-react'
+import { Briefcase, Plus, Loader2, Search, RefreshCw, CheckCircle2, AlertTriangle, X, Calendar, User, ArrowRight } from 'lucide-react'
 import { formatTimestamp } from '@/lib/formatTime'
 
-export default function ProjectsPage() {
+export default function ProjectsPage({ setSelectedProjectId }) {
     const { isAdmin, isOwner } = useAuth()
     const canCreate = isAdmin || isOwner
     const [projects, setProjects] = useState([])
@@ -20,6 +21,13 @@ export default function ProjectsPage() {
     const [client, setClient] = useState('')
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
     const [status, setStatus] = useState('Active')
+    const navigate = useNavigate()
+
+    async function handleOpenProject(project) {
+        setSelectedProjectId(project.id)
+        // Optionally redirect to project usage or dashboard
+        // setSuccess(`Project "${project.name}" is now active context.`)
+    }
 
     useEffect(() => {
         fetchProjects()
@@ -52,6 +60,17 @@ export default function ProjectsPage() {
                 })
 
             if (insertErr) throw insertErr
+
+            // Fetch the newly created project to get its ID
+            const { data: newProj } = await supabase
+                .from('projects_metadata')
+                .select('id')
+                .eq('name', name.trim())
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single()
+
+            if (newProj) handleOpenProject(newProj)
 
             setSuccess('✅ Project created successfully!')
             setName('')
@@ -222,6 +241,15 @@ export default function ProjectsPage() {
                                 <div className="text-surface-300">
                                     {formatTimestamp(p.created_at)}
                                 </div>
+                            </div>
+                            <div className="mt-6 flex items-center gap-3">
+                                <button
+                                    onClick={() => handleOpenProject(p)}
+                                    className="flex-1 px-4 py-2.5 rounded-xl bg-surface-50 border border-surface-200 text-xs font-bold text-surface-600 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-600 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <ArrowRight size={14} />
+                                    Open Project
+                                </button>
                             </div>
                         </div>
                     ))

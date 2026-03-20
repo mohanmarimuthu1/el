@@ -14,6 +14,7 @@ import DispatchPage from '@/pages/DispatchPage'
 import ProjectInventoryPage from '@/pages/ProjectInventoryPage'
 import AdminUserManagementPage from '@/pages/AdminUserManagementPage'
 import ProjectsPage from '@/pages/ProjectsPage'
+import CompanyPaymentsPage from '@/pages/CompanyPaymentsPage'
 
 // Guard: If not logged in, redirect to /login
 function RequireAuth({ children }) {
@@ -94,10 +95,21 @@ export default function App() {
             <Route path="vendors" element={<VendorManagementPage selectedProjectId={selectedProjectId} />} />
             <Route path="audit-log" element={<AuditLogPage />} />
             <Route path="dispatch" element={<DispatchPage selectedProjectId={selectedProjectId} />} />
-            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="projects" element={<ProjectsPage setSelectedProjectId={setSelectedProjectId} />} />
             <Route path="project-usage" element={<ProjectInventoryPage selectedProjectId={selectedProjectId} />} />
             <Route path="user-management" element={<AdminUserManagementPage />} />
           </Route>
+
+          <Route
+            path="company-payments"
+            element={
+              <RequireAuth>
+                <div className="min-h-screen bg-surface-50 p-4 md:p-8">
+                  <CompanyPaymentsPage />
+                </div>
+              </RequireAuth>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

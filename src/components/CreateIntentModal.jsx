@@ -42,9 +42,9 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
             description: form.description.trim(),
             unit: form.unit,
             quantity_required: Number(form.quantity_required),
-            requested_by: user?.email || null, // Changed from id to email for consistency with other modules
+            requested_by: user?.id || null, // Changed back to ID (UUID) as per database schema requirement
             project_id: selectedProjectId || null,
-            status: 'Pending',
+            status: 'Requested',
         })
 
         if (insertError) {

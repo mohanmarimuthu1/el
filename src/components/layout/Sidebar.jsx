@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase } from 'lucide-react'
+import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase, Building2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabaseClient'
+import { useState, useEffect } from 'react'
 
 const navSections = [
     {
@@ -29,8 +31,26 @@ const navSections = [
     }
 ]
 
-export default function Sidebar({ open, setOpen }) {
+export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedProjectId }) {
     const { role, canViewFinancials, isAdmin, isOwner } = useAuth()
+    const [activeProject, setActiveProject] = useState(null)
+
+    useEffect(() => {
+        if (selectedProjectId) {
+            fetchProjectName()
+        } else {
+            setActiveProject(null)
+        }
+    }, [selectedProjectId])
+
+    async function fetchProjectName() {
+        const { data, error } = await supabase
+            .from('projects_metadata')
+            .select('name')
+            .eq('id', selectedProjectId)
+            .single()
+        if (!error && data) setActiveProject(data.name)
+    }
     
     const filterItems = (items) => items.filter(item => {
         if (item.adminOnly && !isAdmin) return false
@@ -67,6 +87,30 @@ export default function Sidebar({ open, setOpen }) {
                         <X size={16} className="text-surface-600" />
                     </button>
                 </div>
+
+                {/* Active Project Context */}
+                {selectedProjectId && (
+                    <div className="mx-4 mt-6 p-4 rounded-2xl bg-brand-50 border border-brand-100 animate-in slide-in-from-left-4 duration-500">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-bold text-brand-500 uppercase tracking-widest">Active Project</span>
+                            <button 
+                                onClick={() => setSelectedProjectId(null)}
+                                className="p-1 rounded-lg hover:bg-brand-100 text-brand-600 transition-colors"
+                                title="Clear Project Context"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                                <div className="text-sm font-bold text-brand-900 truncate">{activeProject || 'Loading...'}</div>
+                            </div>
+                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500 text-white shadow-sm shadow-brand-500/20">
+                                <Briefcase size={14} />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Nav links */}
                 <nav className="flex-1 px-4 py-6 space-y-8 overflow-y-auto custom-scrollbar">

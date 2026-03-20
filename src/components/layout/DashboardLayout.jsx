@@ -16,7 +16,12 @@ export default function DashboardLayout({ selectedProjectId, setSelectedProjectI
                 setSelectedProjectId={setSelectedProjectId}
             />
             <div className="flex">
-                <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
+                <Sidebar 
+                    open={sidebarOpen} 
+                    setOpen={setSidebarOpen} 
+                    selectedProjectId={selectedProjectId}
+                    setSelectedProjectId={setSelectedProjectId}
+                />
                 <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8">
                     <Outlet />
                 </main>

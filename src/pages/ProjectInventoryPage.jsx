@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { formatTimestamp } from '@/lib/formatTime'
 import { LayoutGrid, Search, RefreshCw, Box, ArrowRight, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 
-export default function ProjectInventoryPage() {
+export default function ProjectInventoryPage({ selectedProjectId }) {
     const { user } = useAuth()
     const [dispatches, setDispatches] = useState([])
     const [loading, setLoading] = useState(true)
@@ -17,9 +17,15 @@ export default function ProjectInventoryPage() {
 
     async function fetchDispatches() {
         setLoading(true)
-        const { data, error } = await supabase
+        let query = supabase
             .from('dispatches')
             .select('*')
+        
+        if (selectedProjectId) {
+            query = query.eq('project_id', selectedProjectId)
+        }
+
+        const { data, error } = await query
             .order('created_at', { ascending: false })
         
         if (!error && data) {
@@ -79,7 +85,9 @@ export default function ProjectInventoryPage() {
                         <LayoutGrid size={22} className="text-brand-500" />
                         Project Material Usage
                     </h2>
-                    <p className="text-sm text-surface-700/60 mt-0.5">Inventory materials allocated across all projects</p>
+                    <p className="text-sm text-surface-700/60 mt-0.5">
+                        {selectedProjectId ? 'Materials allocated to the selected project' : 'Inventory materials allocated across all projects'}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="relative">

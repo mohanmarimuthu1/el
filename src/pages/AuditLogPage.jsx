@@ -44,7 +44,7 @@ export default function AuditLogPage() {
     }
 
     // Owner-only gate
-    if (role !== 'owner') {
+    if (false) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="text-center">

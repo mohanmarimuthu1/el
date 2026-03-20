@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { formatTimestamp } from '@/lib/formatTime'
-import { FileText, Search, RefreshCw, Check, X, Plus, Loader2, PackageCheck, Trash2 } from 'lucide-react'
+import { FileText, Search, RefreshCw, Check, X, Plus, Loader2, PackageCheck, Trash2, ShoppingCart } from 'lucide-react'
 import CreateIntentModal from '@/components/CreateIntentModal'
 
 const STATUS_STYLES = {
-    Pending: 'bg-amber-100 text-amber-700 ring-amber-300',
+    Requested: 'bg-amber-100 text-amber-700 ring-amber-300',
     Approved: 'bg-emerald-100 text-emerald-700 ring-emerald-300',
+    Purchased: 'bg-violet-100 text-violet-700 ring-violet-300',
     Delivered: 'bg-blue-100 text-blue-700 ring-blue-300',
     Received: 'bg-emerald-500 text-white ring-emerald-600',
 }
@@ -96,6 +97,44 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
         setTogglingId(null)
     }
 
+    async function markAsPurchased(row) {
+        setConfirmingId(row.id)
+        try {
+            // 1. Update purchase intent status to Purchased
+            const { error: statusErr } = await supabase
+                .from('purchase_intents')
+                .update({ status: 'Purchased', approved_at: new Date().toISOString() })
+                .eq('id', row.id)
+            if (statusErr) throw statusErr
+
+            // 2. Add to inventory
+            const { error: invErr } = await supabase.from('inventory').insert({
+                manufacturer: (row.model_code || 'PURCHASED').toUpperCase(),
+                serial_number: (row.model_code || 'PI-' + row.id.slice(0, 8)).toUpperCase(),
+                model_number: (row.model_code || row.description || 'ITEM').toUpperCase(),
+                stock_count: Number(row.quantity_required) || 1,
+                description: row.description || null,
+            })
+            if (invErr) throw invErr
+
+            // 3. Audit log
+            await supabase.from('activity_logs').insert({
+                user_name: user?.name || user?.email || 'Demo User',
+                user_role: role,
+                action: `Marked purchase intent as Purchased & added to inventory: ${row.model_code} × ${row.quantity_required}`,
+                entity_type: 'inventory',
+            })
+
+            setData(prev => prev.map(r =>
+                r.id === row.id ? { ...r, status: 'Purchased' } : r
+            ))
+        } catch (err) {
+            console.error('Mark as purchased failed:', err)
+        } finally {
+            setConfirmingId(null)
+        }
+    }
+
     async function confirmReceipt(row) {
         setConfirmingId(row.id)
         const { error } = await supabase
@@ -145,6 +184,7 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
     }
 
     const colCount = canViewFinancials ? 11 : 9
+    const allApproved = (row) => row.approval_1_purchase_dept && row.approval_2_md && row.approval_3_manager
 
     return (
         <div className="space-y-6">
@@ -228,9 +268,27 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
                                         )}
                                         <td className="px-5 py-4 text-center">
                                             {row.status === 'Received' ? (
-                                                <span className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider">Received</span>
-                                            ) : (row.approval_1_purchase_dept && row.approval_2_md && row.approval_3_manager) ? (
-                                                <button onClick={() => confirmReceipt(row)} className="text-emerald-600 font-bold hover:underline">Confirm Receipt</button>
+                                                <span className="text-emerald-600 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1">
+                                                    <PackageCheck size={13} /> Received
+                                                </span>
+                                            ) : row.status === 'Purchased' ? (
+                                                <button
+                                                    onClick={() => confirmReceipt(row)}
+                                                    disabled={confirmingId === row.id}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-all disabled:opacity-50"
+                                                >
+                                                    {confirmingId === row.id ? <Loader2 size={12} className="animate-spin" /> : <PackageCheck size={12} />}
+                                                    Confirm Receipt
+                                                </button>
+                                            ) : allApproved(row) ? (
+                                                <button
+                                                    onClick={() => markAsPurchased(row)}
+                                                    disabled={confirmingId === row.id}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 text-xs font-bold hover:bg-violet-100 transition-all disabled:opacity-50"
+                                                >
+                                                    {confirmingId === row.id ? <Loader2 size={12} className="animate-spin" /> : <ShoppingCart size={12} />}
+                                                    Mark Purchased
+                                                </button>
                                             ) : role !== 'employee' ? (
                                                 <button onClick={() => deleteIntent(row)} className="text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
                                             ) : '—'}
