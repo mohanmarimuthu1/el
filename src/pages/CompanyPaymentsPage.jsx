@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { formatTimestamp } from '@/lib/formatTime'
-import { Building2, Search, RefreshCw, Plus, Edit2, Trash2, AlertCircle, Clock, ArrowLeft, FileText, Upload, ExternalLink, Loader2 } from 'lucide-react'
+import { Building2, Search, RefreshCw, Plus, Edit2, Trash2, AlertCircle, Clock, ArrowLeft, FileText, Upload, ExternalLink, Loader2, Users, Phone } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function CompanyPaymentsPage() {
@@ -159,59 +159,85 @@ export default function CompanyPaymentsPage() {
         return Math.floor(diffTime / (1000 * 60 * 60 * 24))
     }
 
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+
     const filtered = payments.filter(row => {
         const matchesSearch = row.company_name?.toLowerCase().includes(search.toLowerCase()) ||
             row.contact_name?.toLowerCase().includes(search.toLowerCase()) ||
             row.gst_number?.toLowerCase().includes(search.toLowerCase())
-        
-        const matchesStatus = statusFilter === 'all' ? true : row.status === statusFilter
-        
+
+        let matchesStatus = true
+        if (statusFilter === 'all') matchesStatus = true
+        else if (statusFilter === 'today') {
+            if (!row.expected_date || row.status !== 'unpaid') { matchesStatus = false }
+            else {
+                const d = new Date(row.expected_date); d.setHours(0, 0, 0, 0)
+                matchesStatus = d.getTime() === today.getTime()
+            }
+        } else {
+            matchesStatus = row.status === statusFilter
+        }
+
         return matchesSearch && matchesStatus
     })
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <Link 
-                        to="/" 
-                        className="p-2.5 rounded-xl border border-surface-200 bg-white text-surface-500 hover:text-brand-500 hover:border-brand-200 hover:shadow-lg transition-all active:scale-95 group"
-                        title="Back to Dashboard"
-                    >
-                        <ArrowLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
-                    </Link>
-                    <div>
-                        <h2 className="text-2xl font-bold text-surface-900 tracking-tight flex items-center gap-2">
-                            <Building2 size={24} className="text-brand-500" />
-                            Company Payments
-                        </h2>
-                        <p className="text-sm text-surface-700/60 mt-0.5">Manage outstanding balances and payment priorities</p>
+            <div className="flex flex-col gap-3">
+                {/* Row 1: title + add button */}
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <Link 
+                            to="/" 
+                            className="p-2 rounded-xl border border-surface-200 bg-white text-surface-500 hover:text-brand-500 hover:border-brand-200 hover:shadow-lg transition-all active:scale-95 group"
+                            title="Back to Dashboard"
+                        >
+                            <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+                        </Link>
+                        <div>
+                            <h2 className="text-xl sm:text-2xl font-bold text-surface-900 tracking-tight flex items-center gap-2">
+                                <Building2 size={20} className="text-brand-500" />
+                                Company Payments
+                            </h2>
+                            <p className="text-xs sm:text-sm text-surface-700/60 mt-0.5 hidden sm:block">Manage outstanding balances and payment priorities</p>
+                        </div>
                     </div>
+                    <button
+                        onClick={() => { resetForm(); setModalOpen(true); }}
+                        className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-bold hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/20 active:scale-95 whitespace-nowrap"
+                    >
+                        <Plus size={15} />
+                        <span className="hidden sm:inline">Add Company</span>
+                        <span className="sm:hidden">Add</span>
+                    </button>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative">
-                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-300" />
+                {/* Row 2: search + filters + refresh */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <div className="relative flex-1 min-w-[140px]">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-300" />
                         <input
                             type="text"
                             placeholder="Search companies..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 pr-4 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all w-full sm:w-64"
+                            className="pl-8 pr-4 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all w-full"
                         />
                     </div>
                     <div className="flex bg-surface-100 p-1 rounded-xl">
-                        {['all', 'unpaid', 'paid'].map((f) => (
+                        {['all', 'unpaid', 'today', 'paid'].map((f) => (
                             <button
                                 key={f}
                                 onClick={() => setStatusFilter(f)}
-                                className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
-                                    statusFilter === f 
-                                    ? 'bg-white text-brand-600 shadow-sm' 
-                                    : 'text-surface-500 hover:text-surface-700'
+                                className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+                                    statusFilter === f
+                                        ? f === 'today'
+                                            ? 'bg-amber-400 text-white shadow-sm'
+                                            : 'bg-white text-brand-600 shadow-sm'
+                                        : 'text-surface-500 hover:text-surface-700'
                                 }`}
                             >
-                                {f}
+                                {f === 'today' ? '📅 Today' : f}
                             </button>
                         ))}
                     </div>
@@ -220,14 +246,7 @@ export default function CompanyPaymentsPage() {
                         className="p-2 rounded-xl border border-surface-200 bg-white hover:bg-surface-50 text-surface-700 transition-colors"
                         title="Refresh"
                     >
-                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                    </button>
-                    <button
-                        onClick={() => { resetForm(); setModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-bold hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/20 active:scale-95"
-                    >
-                        <Plus size={16} />
-                        Add Company
+                        <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
             </div>
@@ -253,6 +272,80 @@ export default function CompanyPaymentsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Due-Soon Alert Banner */}
+            {(() => {
+                const today = new Date(); today.setHours(0,0,0,0)
+                const twoDaysLater = new Date(today); twoDaysLater.setDate(today.getDate() + 2)
+                const dueSoon = payments.filter(p => {
+                    if (p.status !== 'unpaid' || !p.expected_date) return false
+                    const d = new Date(p.expected_date); d.setHours(0,0,0,0)
+                    return d <= twoDaysLater
+                }).sort((a, b) => new Date(a.expected_date) - new Date(b.expected_date))
+                if (dueSoon.length === 0) return null
+                return (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 overflow-hidden shadow-sm">
+                        <div className="flex items-center gap-2.5 px-4 py-3 bg-amber-100/60 border-b border-amber-200">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 shadow">
+                                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                            </span>
+                            <div>
+                                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                                    ⚡ Payment Due Within 2 Days
+                                </span>
+                                <span className="ml-2 text-[10px] text-amber-600 font-medium">
+                                    {dueSoon.length} {dueSoon.length === 1 ? 'company' : 'companies'} need attention
+                                </span>
+                            </div>
+                        </div>
+                        <div className="divide-y divide-amber-100">
+                            {dueSoon.map(item => {
+                                const expDate = new Date(item.expected_date); expDate.setHours(0,0,0,0)
+                                const daysLeft = Math.round((expDate - today) / (1000 * 60 * 60 * 24))
+                                const isOverdue = daysLeft < 0
+                                const isToday = daysLeft === 0
+                                return (
+                                    <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3 hover:bg-amber-100/30 transition-colors">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="flex-shrink-0 h-8 w-8 rounded-xl bg-amber-200 flex items-center justify-center">
+                                                <Building2 size={14} className="text-amber-700" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="font-bold text-surface-900 text-sm truncate">{item.company_name}</div>
+                                                {item.contact_name && (
+                                                    <div className="text-[10px] text-surface-500 flex items-center gap-1">
+                                                        <Users size={9} /> {item.contact_name}
+                                                        {item.contact_number && <><Phone size={9} className="ml-1" /> {item.contact_number}</>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 flex-shrink-0">
+                                            <span className="font-mono font-bold text-sm text-surface-800">
+                                                ₹{parseFloat(item.pending_amount).toLocaleString('en-IN')}
+                                            </span>
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
+                                                isOverdue ? 'bg-rose-100 text-rose-700 animate-pulse' :
+                                                isToday  ? 'bg-orange-100 text-orange-700' :
+                                                           'bg-amber-100 text-amber-700'
+                                            }`}>
+                                                {isOverdue ? `${Math.abs(daysLeft)}d overdue` : isToday ? 'Due Today' : `${daysLeft}d left`}
+                                            </span>
+                                            <button
+                                                onClick={() => handleEdit(item)}
+                                                className="p-1.5 rounded-lg hover:bg-amber-200 text-amber-600 transition-colors"
+                                                title="Edit"
+                                            >
+                                                <Edit2 size={13} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )
+            })()}
 
             {/* Payments Table */}
             <div className="rounded-2xl border border-surface-200 bg-white overflow-hidden shadow-sm">
@@ -297,7 +390,12 @@ export default function CompanyPaymentsPage() {
                                             <div className="font-bold text-surface-900">{item.company_name}</div>
                                             {item.contact_name && (
                                                 <div className="text-[10px] text-surface-400 flex items-center gap-1 mt-0.5">
-                                                    <Users size={10} /> {item.contact_name} {item.contact_number ? `(${item.contact_number})` : ''}
+                                                    <Users size={10} /> {item.contact_name}
+                                                </div>
+                                            )}
+                                            {item.contact_number && (
+                                                <div className="text-[10px] text-surface-500 flex items-center gap-1 mt-0.5 font-mono">
+                                                    <Phone size={10} /> {item.contact_number}
                                                 </div>
                                             )}
                                         </td>
@@ -374,18 +472,20 @@ export default function CompanyPaymentsPage() {
                                             {formatTimestamp(item.created_at)}
                                         </td>
                                         <td className="px-5 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-end gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                                 <button 
                                                     onClick={() => handleEdit(item)}
                                                     className="p-2 text-surface-400 hover:text-brand-500 hover:bg-brand-50 rounded-lg transition-all"
+                                                    title="Edit"
                                                 >
-                                                    <Edit2 size={16} />
+                                                    <Edit2 size={15} />
                                                 </button>
                                                 <button 
                                                     onClick={() => handleDelete(item.id)}
                                                     className="p-2 text-surface-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                                    title="Delete"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={15} />
                                                 </button>
                                             </div>
                                         </td>
@@ -399,17 +499,27 @@ export default function CompanyPaymentsPage() {
 
             {/* Modal */}
             {modalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="p-6 border-b border-surface-100 flex items-center justify-between bg-surface-50">
-                            <h3 className="text-xl font-bold text-surface-900 flex items-center gap-2">
-                                {editingId ? <Edit2 size={20} className="text-brand-500" /> : <Plus size={20} className="text-brand-500" />}
+                <div
+                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-surface-900/60 backdrop-blur-sm"
+                    onClick={(e) => { if (e.target === e.currentTarget) resetForm() }}
+                >
+                    <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[92vh] flex flex-col shadow-2xl">
+                        {/* Sticky header */}
+                        <div className="flex-shrink-0 px-5 py-4 border-b border-surface-100 flex items-center justify-between bg-surface-50 rounded-t-3xl">
+                            <h3 className="text-lg font-bold text-surface-900 flex items-center gap-2">
+                                {editingId ? <Edit2 size={18} className="text-brand-500" /> : <Plus size={18} className="text-brand-500" />}
                                 {editingId ? 'Edit Record' : 'Add New Company'}
                             </h3>
-                            <button onClick={resetForm} className="text-surface-400 hover:text-surface-600 transition-colors">
-                                <Plus size={24} className="rotate-45" />
+                            <button
+                                onClick={resetForm}
+                                className="p-2 rounded-xl hover:bg-surface-200 text-surface-400 hover:text-surface-700 transition-colors"
+                                title="Close"
+                            >
+                                <Plus size={20} className="rotate-45" />
                             </button>
                         </div>
+                        {/* Scrollable body */}
+                        <div className="overflow-y-auto flex-1">
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Company Name</label>
@@ -593,6 +703,7 @@ export default function CompanyPaymentsPage() {
                                 </button>
                             </div>
                         </form>
+                        </div>
                     </div>
                 </div>
             )}

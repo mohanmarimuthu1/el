@@ -5,6 +5,8 @@ import { formatTimestamp } from '@/lib/formatTime'
 import { HardDrive, Search, RefreshCw, Plus, Pencil, Check, X, Loader2, Info, Trash2 } from 'lucide-react'
 import AddInventoryModal from '@/components/AddInventoryModal'
 
+const UOM_OPTIONS = ['NOS', 'MTR', 'KG', 'SET', 'ROLL', 'BOX', 'PCS', 'PAIR', 'LOT', 'LTR']
+
 export default function InventoryPage() {
     const { canManageInventory, user, role } = useAuth()
     const [data, setData] = useState([])
@@ -14,7 +16,7 @@ export default function InventoryPage() {
 
     // Inline editing state
     const [editingId, setEditingId] = useState(null)
-    const [editForm, setEditForm] = useState({ stock_count: '', description: '', reason: '' })
+    const [editForm, setEditForm] = useState({ stock_count: '', uom: 'NOS', description: '', reason: '' })
     const [saving, setSaving] = useState(false)
     const [deletingId, setDeletingId] = useState(null)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -43,7 +45,7 @@ export default function InventoryPage() {
         const { data: rows, error } = await supabase
             .from('inventory')
             .select('*')
-            .order('manufacturer', { ascending: true })
+            .order('updated_at', { ascending: false })
         if (!error) setData(rows || [])
         setLoading(false)
     }
@@ -57,6 +59,7 @@ export default function InventoryPage() {
         setEditingId(row.id)
         setEditForm({
             stock_count: String(row.stock_count ?? 0),
+            uom: row.uom || 'NOS',
             description: row.description || '',
             reason: '',
         })
@@ -64,13 +67,15 @@ export default function InventoryPage() {
 
     function cancelEdit() {
         setEditingId(null)
-        setEditForm({ stock_count: '', description: '', reason: '' })
+        setEditForm({ stock_count: '', uom: 'NOS', description: '', reason: '' })
     }
 
     async function saveEdit(row) {
         const newStock = parseInt(editForm.stock_count) || 0
+        const newUom = editForm.uom || 'NOS'
         const newDesc = editForm.description.trim()
         const stockChanged = newStock !== row.stock_count
+        const uomChanged = newUom !== (row.uom || 'NOS')
 
         // If stock changed, reason is required
         if (stockChanged && !editForm.reason.trim()) {
@@ -79,6 +84,7 @@ export default function InventoryPage() {
 
         const changes = []
         if (stockChanged) changes.push(`Stock: ${row.stock_count} → ${newStock}`)
+        if (uomChanged) changes.push(`UOM: ${row.uom || 'NOS'} → ${newUom}`)
         if (newDesc !== (row.description || '')) changes.push(`Description updated`)
 
         if (changes.length === 0) {
@@ -92,6 +98,7 @@ export default function InventoryPage() {
             .from('inventory')
             .update({
                 stock_count: newStock,
+                uom: newUom,
                 description: newDesc || null,
                 updated_at: new Date().toISOString(),
             })
@@ -122,7 +129,7 @@ export default function InventoryPage() {
             // Optimistic update
             setData(prev => prev.map(r =>
                 r.id === row.id
-                    ? { ...r, stock_count: newStock, description: newDesc || null, updated_at: new Date().toISOString() }
+                    ? { ...r, stock_count: newStock, uom: newUom, description: newDesc || null, updated_at: new Date().toISOString() }
                     : r
             ))
         }
@@ -178,7 +185,7 @@ export default function InventoryPage() {
         setHistoryLoading(false)
     }
 
-    const colCount = canManageInventory ? 7 : 6
+    const colCount = canManageInventory ? 8 : 7
 
     return (
         <div className="space-y-6">
@@ -231,6 +238,7 @@ export default function InventoryPage() {
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Serial No.</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Model No.</th>
                                 <th className="text-center px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Stock</th>
+                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider w-24">UOM</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Description</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Last Updated</th>
                                 {canManageInventory && (
@@ -365,6 +373,25 @@ export default function InventoryPage() {
                                                         />
                                                     )}
                                                 </div>
+                                            </td>
+
+                                            {/* UOM — editable */}
+                                            <td className="px-5 py-3.5">
+                                                {isEditing ? (
+                                                    <select
+                                                        value={editForm.uom}
+                                                        onChange={e => setEditForm(prev => ({ ...prev, uom: e.target.value }))}
+                                                        className="w-full px-2 py-1 text-sm rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all cursor-pointer"
+                                                    >
+                                                        {UOM_OPTIONS.map(u => (
+                                                            <option key={u} value={u}>{u}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-100 text-surface-600 text-xs font-semibold tracking-wide">
+                                                        {row.uom || 'NOS'}
+                                                    </span>
+                                                )}
                                             </td>
 
                                             {/* Description — editable */}
