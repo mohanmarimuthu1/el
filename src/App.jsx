@@ -14,7 +14,9 @@ import DispatchPage from '@/pages/DispatchPage'
 import ProjectInventoryPage from '@/pages/ProjectInventoryPage'
 import AdminUserManagementPage from '@/pages/AdminUserManagementPage'
 import ProjectsPage from '@/pages/ProjectsPage'
+import ProjectWorkspacePage from '@/pages/ProjectWorkspacePage'
 import CompanyPaymentsPage from '@/pages/CompanyPaymentsPage'
+import ProjectGuard from '@/components/ProjectGuard'
 
 // Guard: If not logged in, redirect to /login
 function RequireAuth({ children }) {
@@ -91,11 +93,12 @@ export default function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="inventory" element={<InventoryPage />} />
-            <Route path="purchase-intents" element={<PurchaseIntentsPage selectedProjectId={selectedProjectId} />} />
-            <Route path="vendors" element={<VendorManagementPage selectedProjectId={selectedProjectId} />} />
+            <Route path="purchase-intents" element={<ProjectGuard selectedProjectId={selectedProjectId}><PurchaseIntentsPage selectedProjectId={selectedProjectId} /></ProjectGuard>} />
+            <Route path="vendors" element={<ProjectGuard selectedProjectId={selectedProjectId}><VendorManagementPage selectedProjectId={selectedProjectId} /></ProjectGuard>} />
             <Route path="audit-log" element={<AuditLogPage />} />
-            <Route path="dispatch" element={<DispatchPage selectedProjectId={selectedProjectId} />} />
+            <Route path="dispatch" element={<ProjectGuard selectedProjectId={selectedProjectId}><DispatchPage selectedProjectId={selectedProjectId} /></ProjectGuard>} />
             <Route path="projects" element={<ProjectsPage setSelectedProjectId={setSelectedProjectId} />} />
+            <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
             <Route path="project-usage" element={<ProjectInventoryPage selectedProjectId={selectedProjectId} />} />
             <Route path="user-management" element={<AdminUserManagementPage />} />
           </Route>

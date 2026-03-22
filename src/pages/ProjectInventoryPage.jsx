@@ -170,7 +170,7 @@ export default function ProjectInventoryPage({ selectedProjectId }) {
                                             <tr className="bg-white border-b border-surface-100 text-[10px] font-bold text-surface-400 uppercase tracking-wider">
                                                 <th className="px-6 py-4 text-left">Material / Manufacturer</th>
                                                 <th className="px-6 py-4 text-center w-24">Quantity</th>
-                                                <th className="px-6 py-4 text-left">Dispatched By</th>
+                                                <th className="px-6 py-4 text-left">Despatched By</th>
                                                 <th className="px-6 py-4 text-right">Date</th>
                                             </tr>
                                         </thead>

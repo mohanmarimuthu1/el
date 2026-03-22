@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase, Building2 } from 'lucide-react'
+import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase, Building2, Lock } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabaseClient'
 import { useState, useEffect } from 'react'
@@ -16,9 +16,9 @@ const navSections = [
         title: 'Projects',
         items: [
             { to: '/projects', label: 'Active Projects', sublabel: 'Manager', icon: Briefcase },
-            { to: '/vendors', label: 'Vendor Management', icon: Users, financialOnly: true },
-            { to: '/dispatch', label: 'Dispatch', sublabel: 'Outbound', icon: Truck },
-            { to: '/purchase-intents', label: 'Purchase Intents', sublabel: 'Ledger', icon: FileText },
+            { to: '/vendors', label: 'Vendor Management', icon: Users, financialOnly: true, designGated: true },
+            { to: '/dispatch', label: 'Despatch', sublabel: 'Outbound', icon: Truck, designGated: true },
+            { to: '/purchase-intents', label: 'Purchase Intents', sublabel: 'Ledger', icon: FileText, designGated: true },
             { to: '/project-usage', label: 'Material Usage', sublabel: 'Allocation', icon: LayoutGrid },
         ]
     },
@@ -34,22 +34,27 @@ const navSections = [
 export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedProjectId }) {
     const { role, canViewFinancials, isAdmin, isOwner } = useAuth()
     const [activeProject, setActiveProject] = useState(null)
+    const [designApproved, setDesignApproved] = useState(false)
 
     useEffect(() => {
         if (selectedProjectId) {
-            fetchProjectName()
+            fetchProjectInfo()
         } else {
             setActiveProject(null)
+            setDesignApproved(false)
         }
     }, [selectedProjectId])
 
-    async function fetchProjectName() {
+    async function fetchProjectInfo() {
         const { data, error } = await supabase
             .from('projects_metadata')
-            .select('name')
+            .select('name, design_approved')
             .eq('id', selectedProjectId)
             .single()
-        if (!error && data) setActiveProject(data.name)
+        if (!error && data) {
+            setActiveProject(data.name)
+            setDesignApproved(data.design_approved || false)
+        }
     }
     
     const filterItems = (items) => items.filter(item => {
@@ -59,6 +64,10 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
         if (item.financialOnly && !canViewFinancials) return false
         return true
     })
+
+    const isItemGated = (item) => {
+        return item.designGated && selectedProjectId && !designApproved
+    }
 
     return (
         <>
@@ -124,7 +133,30 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                                     {section.title}
                                 </h3>
                                 <div className="space-y-1">
-                                    {filteredItems.map(({ to, label, sublabel, icon: Icon }) => (
+                                    {filteredItems.map(({ to, label, sublabel, icon: Icon, designGated }) => {
+                                    const gated = isItemGated({ designGated })
+                                    
+                                    if (gated) {
+                                        return (
+                                            <div
+                                                key={to}
+                                                className="group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-surface-300 cursor-not-allowed opacity-60"
+                                                title="Upload a design first to unlock this module"
+                                            >
+                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-50">
+                                                    <Lock size={16} className="text-surface-300" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="truncate tracking-tight">{label}</div>
+                                                    <div className="text-[9px] font-bold uppercase tracking-wider text-surface-300">
+                                                        Design required
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+                                    
+                                    return (
                                         <NavLink
                                             key={to}
                                             to={to}
@@ -155,7 +187,8 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                                                 </>
                                             )}
                                         </NavLink>
-                                    ))}
+                                    )
+                                })}
                                 </div>
                             </div>
                         )

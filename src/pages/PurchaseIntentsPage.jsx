@@ -69,7 +69,7 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
     }
 
     const filtered = data.filter(row =>
-        [row.model_code, row.description, row.status]
+        [row.department, row.description, row.make, row.raised_by, row.status]
             .some(v => v?.toLowerCase().includes(search.toLowerCase()))
     )
 
@@ -183,7 +183,7 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
         )
     }
 
-    const colCount = canViewFinancials ? 11 : 9
+    const colCount = canViewFinancials ? 14 : 12
     const allApproved = (row) => row.approval_1_purchase_dept && row.approval_2_md && row.approval_3_manager
 
     return (
@@ -222,9 +222,12 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
                     <table className="w-full text-sm text-left">
                         <thead className="bg-surface-50">
                             <tr className="border-b border-surface-200">
-                                <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500">Model Code</th>
-                                <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500">Description</th>
+                                <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500">Dept</th>
+                                <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500">Product</th>
+                                <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500">Make</th>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500 text-center">Qty</th>
+                                <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500">Unit</th>
+                                <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500">Raised By</th>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500 text-center">Status</th>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500 text-center">PD</th>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500 text-center">MD</th>
@@ -247,9 +250,19 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
                             ) : (
                                 filtered.map((row) => (
                                     <tr key={row.id} className="hover:bg-brand-50/20">
-                                        <td className="px-5 py-4 font-medium">{row.model_code || '—'}</td>
-                                        <td className="px-5 py-4">{row.description || '—'}</td>
-                                        <td className="px-5 py-4 text-center">{row.quantity_required || '—'}</td>
+                                        <td className="px-5 py-4">
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                row.department === 'Mechanical' ? 'bg-blue-100 text-blue-700' :
+                                                row.department === 'Electrical' ? 'bg-amber-100 text-amber-700' :
+                                                row.department === 'Fabrication' ? 'bg-violet-100 text-violet-700' :
+                                                'bg-surface-100 text-surface-600'
+                                            }`}>{row.department || '—'}</span>
+                                        </td>
+                                        <td className="px-5 py-4 font-medium max-w-[200px] truncate">{row.description || '—'}</td>
+                                        <td className="px-5 py-4 text-xs text-surface-600">{row.make || '—'}</td>
+                                        <td className="px-5 py-4 text-center font-mono">{row.quantity_required || '—'}</td>
+                                        <td className="px-5 py-4 text-xs">{row.unit_of_measurement || row.unit || '—'}</td>
+                                        <td className="px-5 py-4 text-xs text-surface-600">{row.raised_by || '—'}</td>
                                         <td className="px-5 py-4 text-center">
                                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ring-1 ${STATUS_STYLES[row.status] || 'bg-surface-100 text-surface-600'}`}>
                                                 {row.status}

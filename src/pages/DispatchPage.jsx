@@ -137,7 +137,7 @@ export default function DispatchPage({ selectedProjectId }) {
                 await supabase.from('activity_logs').insert({
                     user_name: user?.name || user?.email || 'Demo User',
                     user_role: role,
-                    action: `Dispatched ${qty} × ${selectedItem.model_number || selectedItem.item_name} to "${effectiveProjectName}" (Received by: ${receivedBy.trim()})`,
+                    action: `Despatched ${qty} × ${selectedItem.model_number || selectedItem.item_name} to "${effectiveProjectName}" (Received by: ${receivedBy.trim()})`,
                     entity_type: 'dispatch',
                     entity_id: m.inventory_id,
                     project_id: selectedProjectId || null
@@ -148,20 +148,20 @@ export default function DispatchPage({ selectedProjectId }) {
                     inventory_id: m.inventory_id,
                     previous_stock: currentStock,
                     new_stock: newStock,
-                    reason: `Dispatch to "${effectiveProjectName}" — Received by: ${receivedBy.trim()}`,
+                    reason: `Despatch to "${effectiveProjectName}" — Received by: ${receivedBy.trim()}`,
                     changed_by: user?.name || user?.email || 'Demo User',
                 })
             }
 
-            setSuccess(`✅ Dispatched ${selectedMaterials.length} items successfully!`)
+            setSuccess(`✅ Despatched ${selectedMaterials.length} items successfully!`)
             setProjectName('')
             setReceivedBy('')
             setSelectedMaterials([{ inventory_id: '', quantity: '' }])
             setFormOpen(false)
             fetchData()
         } catch (err) {
-            console.error('Dispatch failed:', err)
-            setError(`Dispatch failed: ${err.message}`)
+            console.error('Despatch failed:', err)
+            setError(`Despatch failed: ${err.message}`)
         } finally {
             setSubmitting(false)
         }
@@ -229,7 +229,7 @@ export default function DispatchPage({ selectedProjectId }) {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-3xl font-extrabold text-surface-900 tracking-tighter">Material Dispatch</h2>
+                    <h2 className="text-3xl font-extrabold text-surface-900 tracking-tighter">Material Despatch</h2>
                     <p className="text-sm text-surface-400 font-medium mt-2">
                         Execute and track project material allocations.
                     </p>
@@ -245,7 +245,7 @@ export default function DispatchPage({ selectedProjectId }) {
                         {formOpen ? (
                             <><X size={18} /> Cancel</>
                         ) : (
-                            <><Plus size={18} /> New Dispatch</>
+                            <><Plus size={18} /> New Despatch</>
                         )}
                     </button>
                 )}
@@ -392,7 +392,7 @@ export default function DispatchPage({ selectedProjectId }) {
                                 className="flex items-center gap-3 px-10 py-4 rounded-[2rem] bg-gradient-to-br from-brand-600 to-brand-800 text-white font-bold text-sm shadow-2xl shadow-brand-500/30 hover:shadow-brand-500/50 transition-all active:scale-95 disabled:opacity-50"
                             >
                                 {submitting ? <Loader2 size={18} className="animate-spin" /> : <Truck size={18} />}
-                                {submitting ? 'Dispatching...' : 'Execute Dispatch'}
+                                {submitting ? 'Despatching...' : 'Execute Despatch'}
                                 <ArrowRight size={18} />
                             </button>
                         </div>
@@ -403,7 +403,7 @@ export default function DispatchPage({ selectedProjectId }) {
             {/* History */}
             <div className="bg-white rounded-[2.5rem] border border-surface-200/50 overflow-hidden shadow-xl shadow-surface-900/[0.02]">
                 <div className="px-8 py-6 border-b border-surface-100 bg-surface-50/30 flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-surface-900 tracking-tight">Dispatch Logs</h3>
+                    <h3 className="text-lg font-bold text-surface-900 tracking-tight">Despatch Logs</h3>
                     <Clock size={18} className="text-surface-400" />
                 </div>
 

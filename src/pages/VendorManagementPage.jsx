@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { formatTimestamp } from '@/lib/formatTime'
-import { Users, Search, RefreshCw, Trophy } from 'lucide-react'
+import { Users, Search, RefreshCw, Trophy, Copy, CheckCircle2 } from 'lucide-react'
 import VendorQuoteSection from '@/components/VendorQuoteSection'
+import VendorRegistrySection from '@/components/VendorRegistrySection'
 
 export default function VendorManagementPage({ selectedProjectId }) {
     const { user, canViewFinancials } = useAuth()
@@ -12,6 +13,8 @@ export default function VendorManagementPage({ selectedProjectId }) {
     const [search, setSearch] = useState('')
     const [formOpen, setFormOpen] = useState(false)
     const [submitting, setSubmitting] = useState(false)
+    const [vendors, setVendors] = useState([])
+    const [copied, setCopied] = useState(null)
     
     // Form state
     const [vendorName, setVendorName] = useState('')
@@ -21,6 +24,7 @@ export default function VendorManagementPage({ selectedProjectId }) {
 
     useEffect(() => {
         fetchQuotes()
+        fetchVendors()
     }, [selectedProjectId])
 
     async function fetchQuotes() {
@@ -37,6 +41,22 @@ export default function VendorManagementPage({ selectedProjectId }) {
         const { data, error } = await query
         if (!error && data) setQuotes(data)
         setLoading(false)
+    }
+
+    async function fetchVendors() {
+        const { data } = await supabase.from('vendors').select('id, name').order('name')
+        setVendors(data || [])
+    }
+
+    function getVendorId(name) {
+        const v = vendors.find(v => v.name?.toLowerCase() === name?.toLowerCase())
+        return v?.id || null
+    }
+
+    function copyId(id) {
+        navigator.clipboard.writeText(id)
+        setCopied(id)
+        setTimeout(() => setCopied(null), 2000)
     }
 
     async function handleAddQuote(e) {
@@ -69,7 +89,7 @@ export default function VendorManagementPage({ selectedProjectId }) {
             .some(v => v?.toLowerCase().includes(search.toLowerCase()))
     )
 
-    const colCount = canViewFinancials ? 6 : 4
+    const colCount = canViewFinancials ? 8 : 6
 
     return (
         <div className="space-y-6">
@@ -103,6 +123,9 @@ export default function VendorManagementPage({ selectedProjectId }) {
                 </div>
             </div>
 
+            {/* Vendor Registry */}
+            <VendorRegistrySection projectId={selectedProjectId} />
+
             {/* Inline Vendor Quote Section */}
             <VendorQuoteSection onSuccess={fetchQuotes} selectedProjectId={selectedProjectId} />
 
@@ -112,6 +135,7 @@ export default function VendorManagementPage({ selectedProjectId }) {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-surface-200 bg-surface-50/80">
+                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Vendor ID</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Vendor Name</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Product</th>
                                 {canViewFinancials && (
@@ -152,6 +176,23 @@ export default function VendorManagementPage({ selectedProjectId }) {
                                             : 'border-surface-100 hover:bg-brand-50/30'
                                             }`}
                                     >
+                                        <td className="px-5 py-3.5">
+                                            {(() => {
+                                                const vid = getVendorId(row.vendor_name)
+                                                return vid ? (
+                                                    <button
+                                                        onClick={() => copyId(vid)}
+                                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-50 border border-surface-200 text-[10px] font-mono font-bold text-surface-600 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-700 transition-all"
+                                                        title="Click to copy"
+                                                    >
+                                                        {vid}
+                                                        {copied === vid ? <CheckCircle2 size={10} className="text-emerald-500" /> : <Copy size={10} />}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[10px] text-surface-300 italic">Not registered</span>
+                                                )
+                                            })()}
+                                        </td>
                                         <td className={`px-5 py-3.5 font-medium ${row.is_best_price ? 'text-amber-900' : 'text-surface-800'}`}>
                                             {row.vendor_name}
                                         </td>

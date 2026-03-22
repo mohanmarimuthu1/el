@@ -22,12 +22,15 @@ export default function ProjectsPage({ setSelectedProjectId }) {
     const [modelNumber, setModelNumber] = useState('')
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
     const [status, setStatus] = useState('Active')
+    const [clientAddress, setClientAddress] = useState('')
+    const [contactPerson, setContactPerson] = useState('')
+    const [contactNumber, setContactNumber] = useState('')
+    const [clientEmail, setClientEmail] = useState('')
     const navigate = useNavigate()
 
     async function handleOpenProject(project) {
         setSelectedProjectId(project.id)
-        // Optionally redirect to project usage or dashboard
-        // setSuccess(`Project "${project.name}" is now active context.`)
+        navigate(`/projects/${project.id}`)
     }
 
     useEffect(() => {
@@ -57,6 +60,10 @@ export default function ProjectsPage({ setSelectedProjectId }) {
                     name: name.trim(),
                     client: client.trim(),
                     model_number: modelNumber.trim().toUpperCase() || null,
+                    client_address: clientAddress.trim() || null,
+                    contact_person: contactPerson.trim() || null,
+                    contact_number: contactNumber.trim() || null,
+                    client_email: clientEmail.trim() || null,
                     start_date: startDate,
                     status,
                 })
@@ -78,6 +85,10 @@ export default function ProjectsPage({ setSelectedProjectId }) {
             setName('')
             setClient('')
             setModelNumber('')
+            setClientAddress('')
+            setContactPerson('')
+            setContactNumber('')
+            setClientEmail('')
             setFormOpen(false)
             fetchProjects()
         } catch (err) {
@@ -146,7 +157,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
             {/* Create Form */}
             {formOpen && (
                 <div className="bg-white rounded-3xl border border-surface-200 p-8 shadow-xl animate-in slide-in-from-top-4 duration-500">
-                    <form onSubmit={handleCreateProject} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <form onSubmit={handleCreateProject} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <div className="space-y-2 text-left">
                             <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Project Name</label>
                             <input
@@ -154,7 +165,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="e.g. Reliance J3 Project"
-                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all transition-all"
+                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all"
                                 required
                             />
                         </div>
@@ -165,7 +176,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
                                 value={client}
                                 onChange={(e) => setClient(e.target.value)}
                                 placeholder="e.g. Reliance Industries"
-                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all transition-all"
+                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all"
                                 required
                             />
                         </div>
@@ -180,12 +191,52 @@ export default function ProjectsPage({ setSelectedProjectId }) {
                             />
                         </div>
                         <div className="space-y-2 text-left">
+                            <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Client Address</label>
+                            <input
+                                type="text"
+                                value={clientAddress}
+                                onChange={(e) => setClientAddress(e.target.value)}
+                                placeholder="Full address"
+                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all"
+                            />
+                        </div>
+                        <div className="space-y-2 text-left">
+                            <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Contact Person</label>
+                            <input
+                                type="text"
+                                value={contactPerson}
+                                onChange={(e) => setContactPerson(e.target.value)}
+                                placeholder="Contact name"
+                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all"
+                            />
+                        </div>
+                        <div className="space-y-2 text-left">
+                            <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Contact Number</label>
+                            <input
+                                type="tel"
+                                value={contactNumber}
+                                onChange={(e) => setContactNumber(e.target.value)}
+                                placeholder="+91 98765 43210"
+                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all"
+                            />
+                        </div>
+                        <div className="space-y-2 text-left">
+                            <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Client Email</label>
+                            <input
+                                type="email"
+                                value={clientEmail}
+                                onChange={(e) => setClientEmail(e.target.value)}
+                                placeholder="client@company.com"
+                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all"
+                            />
+                        </div>
+                        <div className="space-y-2 text-left">
                             <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Start Date</label>
                             <input
                                 type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all transition-all"
+                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold text-surface-900 focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all"
                                 required
                             />
                         </div>
@@ -201,7 +252,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
                                 <option value="Completed">Completed</option>
                             </select>
                         </div>
-                        <div className="md:col-span-2 flex justify-end pt-4">
+                        <div className="lg:col-span-3 md:col-span-2 flex justify-end pt-4">
                             <button
                                 type="submit"
                                 disabled={submitting}
