@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabaseClient'
 
 export const AuthContext = createContext(null)
 
-const ROLES = ['supervisor', 'owner', 'manager', 'admin']
+const ROLES = ['supervisor', 'owner', 'manager', 'admin', 'employee']
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null)
@@ -110,6 +110,7 @@ export function AuthProvider({ children }) {
     const isOwner = role === 'owner'
     const canViewFinancials = role === 'owner' || role === 'manager' || role === 'admin'
     const canManageInventory = role === 'owner' || role === 'manager' || role === 'admin'
+    const canCreateProject = true  // All authenticated users can create projects
 
     return (
         <AuthContext.Provider value={{
@@ -120,6 +121,7 @@ export function AuthProvider({ children }) {
             isOwner,
             canViewFinancials,
             canManageInventory,
+            canCreateProject,
             signIn,
             signOut,
             setDemoRole,

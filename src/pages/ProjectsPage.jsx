@@ -6,8 +6,8 @@ import { Briefcase, Plus, Loader2, Search, RefreshCw, CheckCircle2, AlertTriangl
 import { formatTimestamp } from '@/lib/formatTime'
 
 export default function ProjectsPage({ setSelectedProjectId }) {
-    const { isAdmin, isOwner } = useAuth()
-    const canCreate = isAdmin || isOwner
+    const { user } = useAuth()
+    const canCreate = !!user  // All authenticated users can create projects
     const [projects, setProjects] = useState([])
     const [loading, setLoading] = useState(true)
     const [formOpen, setFormOpen] = useState(false)
