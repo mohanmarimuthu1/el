@@ -94,7 +94,7 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="purchase-intents" element={<ProjectGuard selectedProjectId={selectedProjectId}><PurchaseIntentsPage selectedProjectId={selectedProjectId} /></ProjectGuard>} />
-            <Route path="vendors" element={<ProjectGuard selectedProjectId={selectedProjectId}><VendorManagementPage selectedProjectId={selectedProjectId} /></ProjectGuard>} />
+            <Route path="vendors" element={<VendorManagementPage />} />
             <Route path="audit-log" element={<AuditLogPage />} />
             <Route path="dispatch" element={<ProjectGuard selectedProjectId={selectedProjectId}><DispatchPage selectedProjectId={selectedProjectId} /></ProjectGuard>} />
             <Route path="projects" element={<ProjectsPage setSelectedProjectId={setSelectedProjectId} />} />

@@ -1,12 +1,24 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { X, Plus, Loader2, Package } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { X, Plus, Loader2, Package, ToggleLeft, ToggleRight } from 'lucide-react'
 
 const UOM_OPTIONS = ['NOS', 'MTR', 'KG', 'SET', 'ROLL', 'BOX', 'PCS', 'PAIR', 'LOT', 'LTR']
 
-const emptyForm = { manufacturer: '', serial_number: '', model_number: '', stock_count: '0', uom: 'NOS', description: '' }
+const emptyForm = {
+    product_name: '',
+    manufacturer: '',
+    model_number: '',
+    serial_number: '',
+    stock_count: '0',
+    uom: 'NOS',
+    description: '',
+    maintain_stock: false,
+    min_stock_level: '0',
+}
 
 export default function AddInventoryModal({ open, onClose, onSuccess }) {
+    const { user, role } = useAuth()
     const [form, setForm] = useState({ ...emptyForm })
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState('')
@@ -27,19 +39,21 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
 
     async function handleSubmit(e) {
         e.preventDefault()
+        if (!form.product_name.trim()) return setError('Product Name is required')
         if (!form.manufacturer.trim()) return setError('Manufacturer is required')
-        if (!form.model_number.trim()) return setError('Model Number is required')
 
         setSubmitting(true)
 
         const { error: insertError } = await supabase.from('inventory').insert({
-            description: form.description.trim() || toUpperCase(),
+            product_name: form.product_name.trim(),
             manufacturer: form.manufacturer.trim().toUpperCase(),
+            model_number: form.model_number.trim().toUpperCase() || null,
             serial_number: form.serial_number.trim() || null,
-            model_number: form.model_number.trim().toUpperCase(),
             stock_count: parseInt(form.stock_count) || 0,
             uom: form.uom || 'NOS',
             description: form.description.trim() || null,
+            maintain_stock: form.maintain_stock,
+            min_stock_level: form.maintain_stock ? (parseInt(form.min_stock_level) || 0) : 0,
         })
 
         if (insertError) {
@@ -48,11 +62,10 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
             return
         }
 
-        // Audit log
         await supabase.from('activity_logs').insert({
-            user_name: 'Demo User',
-            user_role: 'owner',
-            action: `Added new inventory item: ${form.model_number.trim().toUpperCase()} (${form.manufacturer.trim().toUpperCase()})`,
+            user_name: user?.user_metadata?.full_name || user?.email || 'User',
+            user_role: role,
+            action: `Added new inventory item: ${form.product_name.trim()} (${form.manufacturer.trim().toUpperCase()})`,
             entity_type: 'inventory',
         })
 
@@ -71,15 +84,15 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-surface-900/30 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-surface-200 overflow-hidden">
+            <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-surface-200 overflow-hidden max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-surface-200 bg-surface-50/50">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-surface-200 bg-surface-50/50 sticky top-0">
                     <div className="flex items-center gap-2">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 shadow-md shadow-brand-500/25">
                             <Package size={15} className="text-white" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold text-surface-900">Add New Item</h3>
+                            <h3 className="text-sm font-bold text-surface-900">Add New Product</h3>
                             <p className="text-[10px] text-surface-700/50">Add to inventory catalog</p>
                         </div>
                     </div>
@@ -90,9 +103,25 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* Product Name */}
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
+                            Product Name <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                            value={form.product_name}
+                            onChange={e => handle('product_name', e.target.value)}
+                            placeholder="e.g. MCB 25A 3-Pole"
+                            className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                        />
+                    </div>
+
+                    {/* Manufacturer + Model No */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Manufacturer *</label>
+                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
+                                Manufacturer <span className="text-red-400">*</span>
+                            </label>
                             <input
                                 value={form.manufacturer}
                                 onChange={e => handle('manufacturer', e.target.value)}
@@ -101,33 +130,27 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Serial Number</label>
+                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
+                                Model No.
+                            </label>
+                            <input
+                                value={form.model_number}
+                                onChange={e => handle('model_number', e.target.value)}
+                                placeholder="e.g. 5SL4416-7RC"
+                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono uppercase"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Serial No + UOM */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Serial No.</label>
                             <input
                                 value={form.serial_number}
                                 onChange={e => handle('serial_number', e.target.value)}
                                 placeholder="e.g. ELM-EL-027"
                                 className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Description *</label>
-                            <input
-                                value={form.description}
-                                onChange={e => handle('description', e.target.value)}
-                                placeholder="Description"
-                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all uppercase font-mono"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Model Number *</label>
-                            <input
-                                value={form.model_number}
-                                onChange={e => handle('model_number', e.target.value)}
-                                placeholder="e.g. 5SL4416-7RC"
-                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all uppercase font-mono"
                             />
                         </div>
                         <div>
@@ -137,33 +160,69 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                                 onChange={e => handle('uom', e.target.value)}
                                 className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all cursor-pointer"
                             >
-                                {UOM_OPTIONS.map(u => (
-                                    <option key={u} value={u}>{u}</option>
-                                ))}
+                                {UOM_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
                             </select>
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Initial Stock</label>
-                        <input
-                            type="number"
-                            min="0"
-                            value={form.stock_count}
-                            onChange={e => handle('stock_count', e.target.value)}
-                            className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                        />
+                    {/* Qty + Description */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Initial Qty</label>
+                            <input
+                                type="number"
+                                min="0"
+                                value={form.stock_count}
+                                onChange={e => handle('stock_count', e.target.value)}
+                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Description</label>
+                            <input
+                                value={form.description}
+                                onChange={e => handle('description', e.target.value)}
+                                placeholder="Brief notes..."
+                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                            />
+                        </div>
                     </div>
 
-                    {/* <div>
-                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Description</label>
-                        <input
-                            value={form.description}
-                            onChange={e => handle('description', e.target.value)}
-                            placeholder="e.g. MCB - 25A, 3 POLE"
-                            className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                        />
-                    </div> */}
+                    {/* Maintain Stock Toggle */}
+                    <div className="rounded-xl border border-surface-200 bg-surface-50 p-4 flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-semibold text-surface-800">Maintain Stock</p>
+                            <p className="text-xs text-surface-500 mt-0.5">Enable minimum stock level tracking & alerts</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => handle('maintain_stock', !form.maintain_stock)}
+                            className={`transition-colors ${form.maintain_stock ? 'text-brand-500' : 'text-surface-300'}`}
+                        >
+                            {form.maintain_stock
+                                ? <ToggleRight size={36} />
+                                : <ToggleLeft size={36} />
+                            }
+                        </button>
+                    </div>
+
+                    {/* Min Stock Level — conditional */}
+                    {form.maintain_stock && (
+                        <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 animate-in fade-in duration-200">
+                            <label className="block text-xs font-semibold text-brand-700 uppercase tracking-wider mb-2">
+                                Minimum Stock Level
+                            </label>
+                            <input
+                                type="number"
+                                min="0"
+                                value={form.min_stock_level}
+                                onChange={e => handle('min_stock_level', e.target.value)}
+                                placeholder="e.g. 5"
+                                className="w-full px-3 py-2 text-sm rounded-xl border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                            />
+                            <p className="text-[10px] text-brand-600 mt-1.5">Alert will trigger when stock falls below this value.</p>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium">{error}</div>
@@ -171,7 +230,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
 
                     {success && (
                         <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-1.5">
-                            <span>✓</span> Item added to inventory!
+                            <span>✓</span> Product added to inventory!
                         </div>
                     )}
 
@@ -184,11 +243,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                             disabled={submitting}
                             className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 transition-all disabled:opacity-60"
                         >
-                            {submitting ? (
-                                <><Loader2 size={14} className="animate-spin" /> Adding...</>
-                            ) : (
-                                <><Plus size={14} /> Add Item</>
-                            )}
+                            {submitting ? <><Loader2 size={14} className="animate-spin" /> Adding...</> : <><Plus size={14} /> Add Product</>}
                         </button>
                     </div>
                 </form>

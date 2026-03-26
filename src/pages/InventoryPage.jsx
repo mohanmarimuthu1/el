@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { formatTimestamp } from '@/lib/formatTime'
-import { HardDrive, Search, RefreshCw, Plus, Pencil, Check, X, Loader2, Info, Trash2 } from 'lucide-react'
+import { HardDrive, Search, RefreshCw, Plus, Pencil, Check, X, Loader2, Info, Trash2, ShoppingBag, AlertTriangle } from 'lucide-react'
 import AddInventoryModal from '@/components/AddInventoryModal'
+import PurchaseEntryModal from '@/components/PurchaseEntryModal'
 
 const UOM_OPTIONS = ['NOS', 'MTR', 'KG', 'SET', 'ROLL', 'BOX', 'PCS', 'PAIR', 'LOT', 'LTR']
 
@@ -13,6 +14,7 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
     const [modalOpen, setModalOpen] = useState(false)
+    const [purchaseModalOpen, setPurchaseModalOpen] = useState(false)
 
     // Inline editing state
     const [editingId, setEditingId] = useState(null)
@@ -217,13 +219,22 @@ export default function InventoryPage() {
                         <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                     </button>
                     {canManageInventory && (
-                        <button
-                            onClick={() => setModalOpen(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all"
-                        >
-                            <Plus size={15} />
-                            <span className="hidden sm:inline">Add Item</span>
-                        </button>
+                        <>
+                            <button
+                                onClick={() => setPurchaseModalOpen(true)}
+                                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition-all"
+                            >
+                                <ShoppingBag size={15} />
+                                <span className="hidden sm:inline">Purchase Entry</span>
+                            </button>
+                            <button
+                                onClick={() => setModalOpen(true)}
+                                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all"
+                            >
+                                <Plus size={15} />
+                                <span className="hidden sm:inline">Add Product</span>
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -234,6 +245,7 @@ export default function InventoryPage() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-surface-200 bg-surface-50/80">
+                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Product</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Manufacturer</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Serial No.</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Model No.</th>
@@ -283,11 +295,16 @@ export default function InventoryPage() {
                                                 : 'border-surface-100 hover:bg-brand-50/30'
                                                 }`}
                                         >
-                                            <td className="px-5 py-3.5 font-medium text-surface-800">{row.manufacturer}</td>
+                                            <td className="px-5 py-3.5">
+                                                <div>
+                                                    <p className="font-semibold text-surface-800 text-sm">{row.product_name || row.manufacturer}</p>
+                                                    {row.product_name && <p className="text-[10px] text-surface-400 uppercase tracking-wide">{row.manufacturer}</p>}
+                                                </div>
+                                            </td>
                                             <td className="px-5 py-3.5 font-mono text-xs text-surface-700">{row.serial_number || '—'}</td>
-                                            <td className="px-5 py-3.5 text-surface-700 font-mono">{row.model_number}</td>
+                                            <td className="px-5 py-3.5 text-surface-700 font-mono">{row.model_number || '—'}</td>
 
-                                            {/* Stock — editable + history icon */}
+                                            {/* Stock — editable + history icon + low-stock badge */}
                                             <td className="px-5 py-3.5 text-center">
                                                 <div className="flex flex-col items-center gap-1.5">
                                                     <div className="flex items-center justify-center gap-1.5">
@@ -302,12 +319,20 @@ export default function InventoryPage() {
                                                             />
                                                         ) : (
                                                             <>
-                                                                <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold ${row.stock_count > 0
-                                                                    ? 'bg-emerald-100 text-emerald-700'
-                                                                    : 'bg-red-100 text-red-700'
-                                                                    }`}>
+                                                                <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold ${
+                                                                    row.maintain_stock && row.stock_count < row.min_stock_level
+                                                                        ? 'bg-red-100 text-red-700 ring-1 ring-red-300'
+                                                                        : row.stock_count > 0
+                                                                            ? 'bg-emerald-100 text-emerald-700'
+                                                                            : 'bg-red-100 text-red-700'
+                                                                }`}>
                                                                     {row.stock_count}
                                                                 </span>
+                                                                {row.maintain_stock && row.stock_count < row.min_stock_level && (
+                                                                    <span title={`Min stock: ${row.min_stock_level}`}>
+                                                                        <AlertTriangle size={12} className="text-amber-500" />
+                                                                    </span>
+                                                                )}
                                                                 {/* History info icon */}
                                                                 <div className="relative" ref={historyId === row.id ? historyRef : null}>
                                                                     <button
@@ -477,10 +502,17 @@ export default function InventoryPage() {
                 )}
             </div>
 
-            {/* Add Item Modal */}
+            {/* Add Product Modal */}
             <AddInventoryModal
                 open={modalOpen}
                 onClose={() => setModalOpen(false)}
+                onSuccess={fetchInventory}
+            />
+
+            {/* Purchase Entry Modal */}
+            <PurchaseEntryModal
+                open={purchaseModalOpen}
+                onClose={() => setPurchaseModalOpen(false)}
                 onSuccess={fetchInventory}
             />
 

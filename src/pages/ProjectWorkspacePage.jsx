@@ -9,15 +9,13 @@ import {
 import DesignTab from '@/components/DesignTab'
 import CreateIntentModal from '@/components/CreateIntentModal'
 import PurchaseIntentsPage from '@/pages/PurchaseIntentsPage'
-import VendorManagementPage from '@/pages/VendorManagementPage'
 import DispatchPage from '@/pages/DispatchPage'
 import VendorRegistrySection from '@/components/VendorRegistrySection'
 
 const TAB_CONFIG = [
     { id: 'info', label: 'Info', icon: Briefcase, gated: false },
-    { id: 'specs', label: 'Specifications', icon: ListChecks, gated: false },
-    { id: 'design', label: 'Design', icon: Palette, gated: false },
-    { id: 'intents', label: 'Purchase Intent', icon: ShoppingCart, gated: true },
+    { id: 'design', label: 'Specs & Design', icon: ListChecks, gated: false },
+    { id: 'intents', label: 'Procurement', icon: ShoppingCart, gated: true },
     { id: 'vendors', label: 'Vendors', icon: Users, gated: true },
     { id: 'dispatch', label: 'Despatch', icon: Truck, gated: true },
 ]
@@ -306,66 +304,68 @@ export default function ProjectWorkspacePage() {
                     </div>
                 )}
 
-                {activeTab === 'specs' && (
-                    <div className="bg-white rounded-3xl border border-surface-200 p-8 shadow-sm space-y-6">
-                        <h3 className="text-lg font-bold text-surface-900 flex items-center gap-2">
-                            <ListChecks size={18} className="text-brand-500" />
-                            Project Specifications
-                        </h3>
+                {activeTab === 'design' && (
+                    <div className="space-y-6">
+                        {/* Specs Section */}
+                        <div className="bg-white rounded-3xl border border-surface-200 p-8 shadow-sm space-y-6">
+                            <h3 className="text-lg font-bold text-surface-900 flex items-center gap-2">
+                                <ListChecks size={18} className="text-brand-500" />
+                                Project Specifications
+                            </h3>
 
-                        {/* Add spec */}
-                        <div className="flex gap-3">
-                            <input
-                                type="text"
-                                value={newSpec}
-                                onChange={(e) => setNewSpec(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && addSpec()}
-                                placeholder="Add specification detail..."
-                                className="flex-1 px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                            />
-                            <button
-                                onClick={addSpec}
-                                disabled={addingSpec || !newSpec.trim()}
-                                className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl text-white bg-brand-500 hover:bg-brand-600 shadow-lg shadow-brand-500/25 transition-all active:scale-95 disabled:opacity-50"
-                            >
-                                {addingSpec ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                                Add
-                            </button>
+                            {/* Add spec */}
+                            <div className="flex gap-3">
+                                <input
+                                    type="text"
+                                    value={newSpec}
+                                    onChange={(e) => setNewSpec(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && addSpec()}
+                                    placeholder="Add specification detail..."
+                                    className="flex-1 px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                                />
+                                <button
+                                    onClick={addSpec}
+                                    disabled={addingSpec || !newSpec.trim()}
+                                    className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl text-white bg-brand-500 hover:bg-brand-600 shadow-lg shadow-brand-500/25 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {addingSpec ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                    Add
+                                </button>
+                            </div>
+
+                            {/* Specs list */}
+                            {specsLoading ? (
+                                <div className="space-y-2">
+                                    {[1,2,3].map(i => <div key={i} className="h-12 bg-surface-100 rounded-xl animate-pulse" />)}
+                                </div>
+                            ) : specs.length === 0 ? (
+                                <div className="py-10 text-center">
+                                    <ListChecks size={32} className="mx-auto text-surface-200 mb-2" />
+                                    <p className="text-surface-400 text-sm font-medium">No specifications added yet</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {specs.map((s, idx) => (
+                                        <div key={s.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-50 border border-surface-100 group hover:border-brand-200 hover:bg-brand-50/30 transition-all">
+                                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-100 text-brand-600 text-[10px] font-bold shrink-0">
+                                                {idx + 1}
+                                            </span>
+                                            <span className="flex-1 text-sm text-surface-800 font-medium">{s.spec_detail}</span>
+                                            <button
+                                                onClick={() => deleteSpec(s.id)}
+                                                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-surface-400 hover:text-red-500 transition-all"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        {/* Specs list */}
-                        {specsLoading ? (
-                            <div className="space-y-2">
-                                {[1,2,3].map(i => <div key={i} className="h-12 bg-surface-100 rounded-xl animate-pulse" />)}
-                            </div>
-                        ) : specs.length === 0 ? (
-                            <div className="py-10 text-center">
-                                <ListChecks size={32} className="mx-auto text-surface-200 mb-2" />
-                                <p className="text-surface-400 text-sm font-medium">No specifications added yet</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {specs.map((s, idx) => (
-                                    <div key={s.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-50 border border-surface-100 group hover:border-brand-200 hover:bg-brand-50/30 transition-all">
-                                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-100 text-brand-600 text-[10px] font-bold shrink-0">
-                                            {idx + 1}
-                                        </span>
-                                        <span className="flex-1 text-sm text-surface-800 font-medium">{s.spec_detail}</span>
-                                        <button
-                                            onClick={() => deleteSpec(s.id)}
-                                            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-surface-400 hover:text-red-500 transition-all"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                        {/* Design Section */}
+                        <DesignTab projectId={projectId} onDesignUploaded={handleDesignUploaded} />
                     </div>
-                )}
-
-                {activeTab === 'design' && (
-                    <DesignTab projectId={projectId} onDesignUploaded={handleDesignUploaded} />
                 )}
 
                 {activeTab === 'intents' && designApproved && (
@@ -373,9 +373,8 @@ export default function ProjectWorkspacePage() {
                 )}
 
                 {activeTab === 'vendors' && designApproved && (
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         <VendorRegistrySection projectId={projectId} />
-                        <VendorManagementPage selectedProjectId={projectId} />
                     </div>
                 )}
 
