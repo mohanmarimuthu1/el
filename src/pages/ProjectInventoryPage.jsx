@@ -164,9 +164,9 @@ export default function ProjectInventoryPage({ selectedProjectId }) {
 
                             {/* Project Details */}
                             {expandedProjects[project.name] && (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
+                                <div className="overflow-auto" style={{ maxHeight: '50vh' }}>
+                                    <table className="w-full text-sm relative">
+                                        <thead className="bg-white sticky top-0 z-10 shadow-sm ring-1 ring-surface-100">
                                             <tr className="bg-white border-b border-surface-100 text-[10px] font-bold text-surface-400 uppercase tracking-wider">
                                                 <th className="px-6 py-4 text-left">Material / Manufacturer</th>
                                                 <th className="px-6 py-4 text-center w-24">Quantity</th>

@@ -9,7 +9,7 @@ import {
 import DesignTab from '@/components/DesignTab'
 import CreateIntentModal from '@/components/CreateIntentModal'
 import PurchaseIntentsPage from '@/pages/PurchaseIntentsPage'
-import DispatchPage from '@/pages/DispatchPage'
+import DespatchPage from '@/pages/DespatchPage'
 import VendorRegistrySection from '@/components/VendorRegistrySection'
 
 const TAB_CONFIG = [
@@ -17,7 +17,7 @@ const TAB_CONFIG = [
     { id: 'design', label: 'Specs & Design', icon: ListChecks, gated: false },
     { id: 'intents', label: 'Procurement', icon: ShoppingCart, gated: true },
     { id: 'vendors', label: 'Vendors', icon: Users, gated: true },
-    { id: 'dispatch', label: 'Despatch', icon: Truck, gated: true },
+    { id: 'despatch', label: 'Despatch', icon: Truck, gated: true },
 ]
 
 export default function ProjectWorkspacePage() {
@@ -378,8 +378,8 @@ export default function ProjectWorkspacePage() {
                     </div>
                 )}
 
-                {activeTab === 'dispatch' && designApproved && (
-                    <DispatchPage selectedProjectId={projectId} />
+                {activeTab === 'despatch' && designApproved && (
+                    <DespatchPage selectedProjectId={projectId} />
                 )}
             </div>
         </div>

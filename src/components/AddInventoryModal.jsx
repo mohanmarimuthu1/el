@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { X, Plus, Loader2, Package, ToggleLeft, ToggleRight } from 'lucide-react'
+import SearchableDropdown from '@/components/SearchableDropdown'
 
 const UOM_OPTIONS = ['NOS', 'MTR', 'KG', 'SET', 'ROLL', 'BOX', 'PCS', 'PAIR', 'LOT', 'LTR']
 
@@ -122,22 +123,22 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                             <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
                                 Manufacturer <span className="text-red-400">*</span>
                             </label>
-                            <input
+                            <SearchableDropdown
+                                category="manufacturer"
                                 value={form.manufacturer}
-                                onChange={e => handle('manufacturer', e.target.value)}
-                                placeholder="e.g. SIEMENS"
-                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all uppercase"
+                                onChange={val => handle('manufacturer', val)}
+                                placeholder="Select or type..."
                             />
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
                                 Model No.
                             </label>
-                            <input
+                            <SearchableDropdown
+                                category="model_number"
                                 value={form.model_number}
-                                onChange={e => handle('model_number', e.target.value)}
-                                placeholder="e.g. 5SL4416-7RC"
-                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono uppercase"
+                                onChange={val => handle('model_number', val)}
+                                placeholder="Select or type..."
                             />
                         </div>
                     </div>
@@ -155,13 +156,12 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">UOM</label>
-                            <select
+                            <SearchableDropdown
+                                category="uom"
                                 value={form.uom}
-                                onChange={e => handle('uom', e.target.value)}
-                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all cursor-pointer"
-                            >
-                                {UOM_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                            </select>
+                                onChange={val => handle('uom', val)}
+                                placeholder="Select UOM"
+                            />
                         </div>
                     </div>
 

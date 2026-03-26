@@ -5,6 +5,8 @@ import { formatTimestamp } from '@/lib/formatTime'
 import { HardDrive, Search, RefreshCw, Plus, Pencil, Check, X, Loader2, Info, Trash2, ShoppingBag, AlertTriangle } from 'lucide-react'
 import AddInventoryModal from '@/components/AddInventoryModal'
 import PurchaseEntryModal from '@/components/PurchaseEntryModal'
+import CreateIntentModal from '@/components/CreateIntentModal'
+import { FileText } from 'lucide-react'
 
 const UOM_OPTIONS = ['NOS', 'MTR', 'KG', 'SET', 'ROLL', 'BOX', 'PCS', 'PAIR', 'LOT', 'LTR']
 
@@ -15,6 +17,7 @@ export default function InventoryPage() {
     const [search, setSearch] = useState('')
     const [modalOpen, setModalOpen] = useState(false)
     const [purchaseModalOpen, setPurchaseModalOpen] = useState(false)
+    const [intentModalOpen, setIntentModalOpen] = useState(false)
 
     // Inline editing state
     const [editingId, setEditingId] = useState(null)
@@ -221,6 +224,13 @@ export default function InventoryPage() {
                     {canManageInventory && (
                         <>
                             <button
+                                onClick={() => setIntentModalOpen(true)}
+                                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all"
+                            >
+                                <FileText size={15} />
+                                <span className="hidden sm:inline">New Intent</span>
+                            </button>
+                            <button
                                 onClick={() => setPurchaseModalOpen(true)}
                                 className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition-all"
                             >
@@ -240,11 +250,11 @@ export default function InventoryPage() {
             </div>
 
             {/* Table */}
-            <div className="rounded-2xl border border-surface-200 bg-white overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-surface-200 bg-surface-50/80">
+            <div className="rounded-2xl border border-surface-200 bg-white shadow-sm flex flex-col" style={{ maxHeight: '60vh' }}>
+                <div className="overflow-auto flex-1">
+                    <table className="w-full text-sm relative">
+                        <thead className="bg-surface-50/80 sticky top-0 z-20 shadow-sm ring-1 ring-surface-200">
+                            <tr className="border-b border-surface-200">
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Product</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Manufacturer</th>
                                 <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Serial No.</th>
@@ -514,6 +524,13 @@ export default function InventoryPage() {
                 open={purchaseModalOpen}
                 onClose={() => setPurchaseModalOpen(false)}
                 onSuccess={fetchInventory}
+            />
+
+            {/* Create Intent Modal for General Stock */}
+            <CreateIntentModal
+                open={intentModalOpen}
+                onClose={() => setIntentModalOpen(false)}
+                // Note: No selectedProjectId so it defaults to General Stock
             />
 
             {/* Popover animation */}

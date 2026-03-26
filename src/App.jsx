@@ -10,7 +10,8 @@ import PurchaseIntentsPage from '@/pages/PurchaseIntentsPage'
 import VendorManagementPage from '@/pages/VendorManagementPage'
 import PublicInventoryPage from '@/pages/PublicInventoryPage'
 import AuditLogPage from '@/pages/AuditLogPage'
-import DispatchPage from '@/pages/DispatchPage'
+import DespatchPage from '@/pages/DespatchPage'
+import PurchaseEntriesPage from '@/pages/PurchaseEntriesPage'
 import ProjectInventoryPage from '@/pages/ProjectInventoryPage'
 import AdminUserManagementPage from '@/pages/AdminUserManagementPage'
 import ProjectsPage from '@/pages/ProjectsPage'
@@ -93,10 +94,11 @@ export default function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="inventory" element={<InventoryPage />} />
+            <Route path="purchase-entries" element={<PurchaseEntriesPage />} />
             <Route path="purchase-intents" element={<ProjectGuard selectedProjectId={selectedProjectId}><PurchaseIntentsPage selectedProjectId={selectedProjectId} /></ProjectGuard>} />
             <Route path="vendors" element={<VendorManagementPage />} />
             <Route path="audit-log" element={<AuditLogPage />} />
-            <Route path="dispatch" element={<ProjectGuard selectedProjectId={selectedProjectId}><DispatchPage selectedProjectId={selectedProjectId} /></ProjectGuard>} />
+            <Route path="despatch" element={<ProjectGuard selectedProjectId={selectedProjectId}><DespatchPage selectedProjectId={selectedProjectId} /></ProjectGuard>} />
             <Route path="projects" element={<ProjectsPage setSelectedProjectId={setSelectedProjectId} />} />
             <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
             <Route path="project-usage" element={<ProjectInventoryPage selectedProjectId={selectedProjectId} />} />

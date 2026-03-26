@@ -252,10 +252,15 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">Department</label>
-                                        <div className="px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-surface-50 font-semibold text-surface-700 flex items-center gap-2">
-                                            <span className="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
-                                            Electrical Team
-                                        </div>
+                                        <select
+                                            value={department}
+                                            onChange={e => setDepartment(e.target.value)}
+                                            className="w-full px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all appearance-none cursor-pointer font-semibold text-surface-700"
+                                        >
+                                            <option value="Electrical">Electrical Team</option>
+                                            <option value="Mechanical">Mechanical Team</option>
+                                            <option value="Fabrication">Fabrication Team</option>
+                                        </select>
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">Raised By</label>

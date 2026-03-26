@@ -9,7 +9,13 @@ const navSections = [
         title: 'Core',
         items: [
             { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-            { to: '/inventory', label: 'Inventory', sublabel: 'Hardware Tracking', icon: HardDrive },
+        ]
+    },
+    {
+        title: 'Product Management',
+        items: [
+            { to: '/inventory', label: 'Inventory', sublabel: 'Live Stock Tracking', icon: HardDrive },
+            { to: '/purchase-entries', label: 'Purchase Entries', sublabel: 'Historical Log', icon: FileText },
         ]
     },
     {
@@ -17,7 +23,7 @@ const navSections = [
         items: [
             { to: '/projects', label: 'Active Projects', sublabel: 'Manager', icon: Briefcase },
             { to: '/vendors', label: 'Vendor Management', icon: Users, financialOnly: true, designGated: true },
-            { to: '/dispatch', label: 'Despatch', sublabel: 'Outbound', icon: Truck, designGated: true },
+            { to: '/despatch', label: 'Despatch', sublabel: 'Outbound', icon: Truck, designGated: true },
             { to: '/purchase-intents', label: 'Purchase Intents', sublabel: 'Ledger', icon: FileText, designGated: true },
             { to: '/project-usage', label: 'Material Usage', sublabel: 'Allocation', icon: LayoutGrid },
         ]
