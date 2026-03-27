@@ -11,7 +11,8 @@ import { FileText } from 'lucide-react'
 const UOM_OPTIONS = ['NOS', 'MTR', 'KG', 'SET', 'ROLL', 'BOX', 'PCS', 'PAIR', 'LOT', 'LTR']
 
 export default function InventoryPage() {
-    const { canManageInventory, user, role } = useAuth()
+    const { canManageInventory, user, role, isAdmin, isOwner } = useAuth()
+    const canDelete = isAdmin || isOwner || role === 'manager' // Added manager for testing
     const [data, setData] = useState([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
@@ -19,9 +20,14 @@ export default function InventoryPage() {
     const [purchaseModalOpen, setPurchaseModalOpen] = useState(false)
     const [intentModalOpen, setIntentModalOpen] = useState(false)
 
+    // Multi-select state
+    const [selectedIds, setSelectedIds] = useState(new Set())
+    const [bulkDeleting, setBulkDeleting] = useState(false)
+    const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+
     // Inline editing state
     const [editingId, setEditingId] = useState(null)
-    const [editForm, setEditForm] = useState({ quantity: '', uom: 'NOS', description: '', reason: '' })
+    const [editForm, setEditForm] = useState({ quantity: '', uom: 'NOS', description: '', reason: '', max_stock_level: '' })
     const [saving, setSaving] = useState(false)
     const [deletingId, setDeletingId] = useState(null)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -53,13 +59,63 @@ export default function InventoryPage() {
             .order('updated_at', { ascending: false })
         if (!error) setData(rows || [])
         setLoading(false)
+        setSelectedIds(new Set())
     }
 
     const filtered = data.filter(row =>
-        [row.manufacturer, row.serial_number, row.model_number, row.description]
+        [row.manufacturer, row.serial_number, row.model_number, row.description, row.product_name]
             .some(v => v?.toLowerCase().includes(search.toLowerCase()))
     )
 
+    // ─── Multi-Select ───
+    function toggleSelect(id) {
+        setSelectedIds(prev => {
+            const next = new Set(prev)
+            next.has(id) ? next.delete(id) : next.add(id)
+            return next
+        })
+    }
+
+    function toggleSelectAll() {
+        if (selectedIds.size === filtered.length) {
+            setSelectedIds(new Set())
+        } else {
+            setSelectedIds(new Set(filtered.map(r => r.id)))
+        }
+    }
+
+    async function handleBulkDelete() {
+        if (!confirmBulkDelete) {
+            setConfirmBulkDelete(true)
+            setTimeout(() => setConfirmBulkDelete(false), 4000)
+            return
+        }
+        setBulkDeleting(true)
+        setConfirmBulkDelete(false)
+        const ids = [...selectedIds]
+
+        // Explicitly remove dependent foreign key records first
+        await supabase.from('stock_adjustments').delete().in('inventory_id', ids)
+
+        const { error } = await supabase.from('inventory').delete().in('id', ids)
+        if (error) {
+            alert(`Delete failed: ${error.message}`)
+            setBulkDeleting(false)
+            return
+        }
+
+        await supabase.from('activity_logs').insert({
+            user_name: user?.user_metadata?.full_name || user?.email || 'User',
+            user_role: role,
+            action: `Bulk deleted ${ids.length} inventory item(s)`,
+            entity_type: 'inventory',
+        })
+        setData(prev => prev.filter(r => !ids.includes(r.id)))
+        setSelectedIds(new Set())
+        setBulkDeleting(false)
+    }
+
+    // ─── Inline Edit ───
     function startEdit(row) {
         setEditingId(row.id)
         setEditForm({
@@ -67,35 +123,32 @@ export default function InventoryPage() {
             uom: row.uom || 'NOS',
             description: row.description || '',
             reason: '',
+            max_stock_level: String(row.max_stock_level ?? 0),
         })
     }
 
     function cancelEdit() {
         setEditingId(null)
-        setEditForm({ quantity: '', uom: 'NOS', description: '', reason: '' })
+        setEditForm({ quantity: '', uom: 'NOS', description: '', reason: '', max_stock_level: '' })
     }
 
     async function saveEdit(row) {
         const newStock = parseInt(editForm.quantity) || 0
         const newUom = editForm.uom || 'NOS'
         const newDesc = editForm.description.trim()
+        const newMaxStock = parseInt(editForm.max_stock_level) || 0
         const stockChanged = newStock !== row.quantity
         const uomChanged = newUom !== (row.uom || 'NOS')
 
-        // If stock changed, reason is required
-        if (stockChanged && !editForm.reason.trim()) {
-            return // Don't save without reason
-        }
+        if (stockChanged && !editForm.reason.trim()) return
 
         const changes = []
         if (stockChanged) changes.push(`Stock: ${row.quantity} → ${newStock}`)
         if (uomChanged) changes.push(`UOM: ${row.uom || 'NOS'} → ${newUom}`)
         if (newDesc !== (row.description || '')) changes.push(`Description updated`)
+        if (newMaxStock !== (row.max_stock_level ?? 0)) changes.push(`Max Stock: ${row.max_stock_level ?? 0} → ${newMaxStock}`)
 
-        if (changes.length === 0) {
-            cancelEdit()
-            return
-        }
+        if (changes.length === 0) { cancelEdit(); return }
 
         setSaving(true)
 
@@ -105,36 +158,32 @@ export default function InventoryPage() {
                 quantity: newStock,
                 uom: newUom,
                 description: newDesc || null,
+                max_stock_level: newMaxStock,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', row.id)
 
         if (!error) {
-            // If stock changed, log the adjustment
             if (stockChanged) {
                 await supabase.from('stock_adjustments').insert({
                     inventory_id: row.id,
                     previous_stock: row.quantity,
                     new_stock: newStock,
                     reason: editForm.reason.trim(),
-                    changed_by: user?.name || 'Demo User',
+                    changed_by: user?.user_metadata?.full_name || user?.email || 'User',
                 })
             }
-
-            // Audit log
             const reasonSuffix = stockChanged ? ` — Reason: ${editForm.reason.trim()}` : ''
             await supabase.from('activity_logs').insert({
-                user_name: user?.name || 'Demo User',
+                user_name: user?.user_metadata?.full_name || user?.email || 'User',
                 user_role: role,
                 action: `Edited inventory ${row.model_number}: ${changes.join(', ')}${reasonSuffix}`,
                 entity_type: 'inventory',
                 entity_id: row.id,
             })
-
-            // Optimistic update
             setData(prev => prev.map(r =>
                 r.id === row.id
-                    ? { ...r, quantity: newStock, uom: newUom, description: newDesc || null, updated_at: new Date().toISOString() }
+                    ? { ...r, quantity: newStock, uom: newUom, description: newDesc || null, max_stock_level: newMaxStock, updated_at: new Date().toISOString() }
                     : r
             ))
         }
@@ -144,28 +193,28 @@ export default function InventoryPage() {
     }
 
     async function deleteItem(row) {
-        // Two-step confirmation: first click sets confirmDeleteId, second click deletes
         if (confirmDeleteId !== row.id) {
             setConfirmDeleteId(row.id)
-            // Auto-cancel after 4 seconds
             setTimeout(() => setConfirmDeleteId(prev => prev === row.id ? null : prev), 4000)
             return
         }
-
         setConfirmDeleteId(null)
         setDeletingId(row.id)
-        const { error } = await supabase.from('inventory').delete().eq('id', row.id)
 
+        // Explicitly remove dependent foreign key records first
+        await supabase.from('stock_adjustments').delete().eq('inventory_id', row.id)
+
+        const { error } = await supabase.from('inventory').delete().eq('id', row.id)
         if (error) {
-            console.error('Delete failed:', error)
+            alert(`Delete failed: ${error.message}`)
             setDeletingId(null)
             return
         }
 
         await supabase.from('activity_logs').insert({
-            user_name: user?.name || 'Demo User',
+            user_name: user?.user_metadata?.full_name || user?.email || 'User',
             user_role: role,
-            action: `Deleted inventory item: ${row.model_number} (${row.manufacturer})`,
+            action: `Deleted inventory item: ${row.product_name || row.model_number} (${row.manufacturer})`,
             entity_type: 'inventory',
             entity_id: row.id,
         })
@@ -174,10 +223,7 @@ export default function InventoryPage() {
     }
 
     async function showHistory(inventoryId) {
-        if (historyId === inventoryId) {
-            setHistoryId(null)
-            return
-        }
+        if (historyId === inventoryId) { setHistoryId(null); return }
         setHistoryId(inventoryId)
         setHistoryLoading(true)
         const { data: adjustments } = await supabase
@@ -190,7 +236,8 @@ export default function InventoryPage() {
         setHistoryLoading(false)
     }
 
-    const colCount = canManageInventory ? 10 : 9
+    // Column count
+    const colCount = canManageInventory ? (canDelete ? 12 : 11) : 10
 
     return (
         <div className="space-y-6">
@@ -203,7 +250,7 @@ export default function InventoryPage() {
                     </h2>
                     <p className="text-sm text-surface-700/60 mt-0.5">Hardware tracking & stock management</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative">
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-300" />
                         <input
@@ -221,6 +268,23 @@ export default function InventoryPage() {
                     >
                         <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                     </button>
+
+                    {/* Bulk Delete Button — only shown when items are selected + admin/owner */}
+                    {canDelete && selectedIds.size > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+                            disabled={bulkDeleting}
+                            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-all ${
+                                confirmBulkDelete
+                                    ? 'bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30'
+                                    : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                            }`}
+                        >
+                            {bulkDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                            {confirmBulkDelete ? `Confirm Delete (${selectedIds.size})` : `Delete (${selectedIds.size})`}
+                        </button>
+                    )}
+
                     {canManageInventory && (
                         <>
                             <button
@@ -250,22 +314,34 @@ export default function InventoryPage() {
             </div>
 
             {/* Table */}
-            <div className="rounded-2xl border border-surface-200 bg-white shadow-sm flex flex-col" style={{ maxHeight: '60vh' }}>
+            <div className="rounded-2xl border border-surface-200 bg-white shadow-sm flex flex-col" style={{ maxHeight: '65vh' }}>
                 <div className="overflow-auto flex-1">
                     <table className="w-full text-sm relative">
                         <thead className="bg-surface-50/80 sticky top-0 z-20 shadow-sm ring-1 ring-surface-200">
                             <tr className="border-b border-surface-200">
+                                {/* Checkbox column for admin/owner */}
+                                {canDelete && (
+                                    <th className="px-4 py-3.5 w-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                                            onChange={toggleSelectAll}
+                                            className="rounded border-surface-300 text-brand-500 focus:ring-brand-500/20 cursor-pointer"
+                                        />
+                                    </th>
+                                )}
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Name</th>
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Manufacturer</th>
-                                <th className="text-left px-4 py-3.5 font-semibold text-xs uppercase tracking-wider">Model No.</th>
+                                <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Model No.</th>
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Serial No.</th>
-                                <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Quantity</th>
+                                <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Qty</th>
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider w-20">UOM</th>
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Description</th>
                                 <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Maintain</th>
                                 <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Min Qty</th>
+                                <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Max Qty</th>
                                 {canManageInventory && (
-                                    <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider w-16">Edit</th>
+                                    <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider w-24">Actions</th>
                                 )}
                             </tr>
                         </thead>
@@ -287,7 +363,7 @@ export default function InventoryPage() {
                                         <p className="font-medium">No inventory items found</p>
                                         <p className="text-xs mt-1">
                                             {canManageInventory
-                                                ? 'Click "+ Add Item" to add your first product.'
+                                                ? 'Click "+ Add Product" to add your first item.'
                                                 : 'Items will appear here once added to the database.'}
                                         </p>
                                     </td>
@@ -297,15 +373,32 @@ export default function InventoryPage() {
                                     const isEditing = editingId === row.id
                                     const stockChanged = isEditing && parseInt(editForm.quantity) !== row.quantity
                                     const reasonMissing = stockChanged && !editForm.reason.trim()
+                                    const isSelected = selectedIds.has(row.id)
+                                    const isBelowMin = row.maintain_stock && row.quantity < row.min_stock_level
+                                    const isAboveMax = row.maintain_stock && row.max_stock_level > 0 && row.quantity > row.max_stock_level
 
                                     return (
                                         <tr
                                             key={row.id}
                                             className={`border-b transition-colors ${isEditing
                                                 ? 'bg-brand-50/50 border-brand-200'
-                                                : 'border-surface-100 hover:bg-brand-50/30'
+                                                : isSelected
+                                                    ? 'bg-blue-50/60 border-blue-100'
+                                                    : 'border-surface-100 hover:bg-brand-50/30'
                                                 }`}
                                         >
+                                            {/* Checkbox */}
+                                            {canDelete && (
+                                                <td className="px-4 py-3.5">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleSelect(row.id)}
+                                                        className="rounded border-surface-300 text-brand-500 focus:ring-brand-500/20 cursor-pointer"
+                                                    />
+                                                </td>
+                                            )}
+
                                             <td className="px-5 py-3.5">
                                                 <p className="font-semibold text-surface-800 text-sm whitespace-nowrap">{row.product_name || '—'}</p>
                                             </td>
@@ -315,7 +408,7 @@ export default function InventoryPage() {
                                             <td className="px-5 py-3.5 text-surface-700 font-mono text-xs">{row.model_number || '—'}</td>
                                             <td className="px-5 py-3.5 font-mono text-xs text-surface-700">{row.serial_number || '—'}</td>
 
-                                            {/* Stock — editable + history icon + low-stock badge */}
+                                            {/* Quantity */}
                                             <td className="px-5 py-3.5 text-center">
                                                 <div className="flex flex-col items-center gap-1.5">
                                                     <div className="flex items-center justify-center gap-1.5">
@@ -331,20 +424,27 @@ export default function InventoryPage() {
                                                         ) : (
                                                             <>
                                                                 <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold ${
-                                                                    row.maintain_stock && row.quantity < row.min_stock_level
+                                                                    isBelowMin
                                                                         ? 'bg-red-100 text-red-700 ring-1 ring-red-300'
-                                                                        : row.quantity > 0
-                                                                            ? 'bg-emerald-100 text-emerald-700'
-                                                                            : 'bg-red-100 text-red-700'
+                                                                        : isAboveMax
+                                                                            ? 'bg-orange-100 text-orange-700 ring-1 ring-orange-300'
+                                                                            : row.quantity > 0
+                                                                                ? 'bg-emerald-100 text-emerald-700'
+                                                                                : 'bg-red-100 text-red-700'
                                                                 }`}>
                                                                     {row.quantity}
                                                                 </span>
-                                                                {row.maintain_stock && row.quantity < row.min_stock_level && (
-                                                                    <span title={`Min stock: ${row.min_stock_level}`}>
-                                                                        <AlertTriangle size={12} className="text-amber-500" />
+                                                                {isBelowMin && (
+                                                                    <span title={`Below min stock: ${row.min_stock_level}`}>
+                                                                        <AlertTriangle size={12} className="text-red-500" />
                                                                     </span>
                                                                 )}
-                                                                {/* History info icon */}
+                                                                {isAboveMax && !isBelowMin && (
+                                                                    <span title={`Above max stock: ${row.max_stock_level}`}>
+                                                                        <AlertTriangle size={12} className="text-orange-500" />
+                                                                    </span>
+                                                                )}
+                                                                {/* History icon */}
                                                                 <div className="relative" ref={historyId === row.id ? historyRef : null}>
                                                                     <button
                                                                         onClick={() => showHistory(row.id)}
@@ -353,8 +453,6 @@ export default function InventoryPage() {
                                                                     >
                                                                         <Info size={12} />
                                                                     </button>
-
-                                                                    {/* History Popover */}
                                                                     {historyId === row.id && (
                                                                         <div className="absolute z-50 top-7 left-1/2 -translate-x-1/2 w-72 bg-white rounded-xl border border-surface-200 shadow-2xl shadow-surface-900/15 overflow-hidden"
                                                                             style={{ animation: 'popIn 0.15s ease-out' }}>
@@ -366,9 +464,7 @@ export default function InventoryPage() {
                                                                                     <Loader2 size={14} className="animate-spin text-surface-300 mx-auto" />
                                                                                 </div>
                                                                             ) : historyData.length === 0 ? (
-                                                                                <div className="px-3 py-4 text-center text-xs text-surface-400">
-                                                                                    No adjustments recorded yet
-                                                                                </div>
+                                                                                <div className="px-3 py-4 text-center text-xs text-surface-400">No adjustments recorded yet</div>
                                                                             ) : (
                                                                                 <div className="divide-y divide-surface-100">
                                                                                     {historyData.map((adj) => (
@@ -395,7 +491,7 @@ export default function InventoryPage() {
                                                             </>
                                                         )}
                                                     </div>
-                                                    {/* Reason input — shown directly below stock input when stock value changes */}
+                                                    {/* Reason input */}
                                                     {stockChanged && (
                                                         <input
                                                             type="text"
@@ -411,7 +507,7 @@ export default function InventoryPage() {
                                                 </div>
                                             </td>
 
-                                            {/* UOM — editable */}
+                                            {/* UOM */}
                                             <td className="px-5 py-3.5">
                                                 {isEditing ? (
                                                     <select
@@ -430,7 +526,7 @@ export default function InventoryPage() {
                                                 )}
                                             </td>
 
-                                            {/* Description — editable */}
+                                            {/* Description */}
                                             <td className="px-5 py-3.5">
                                                 {isEditing ? (
                                                     <input
@@ -445,7 +541,7 @@ export default function InventoryPage() {
                                                 )}
                                             </td>
 
-                                            {/* Maintain Stock toggle read-only */}
+                                            {/* Maintain Stock */}
                                             <td className="px-5 py-3.5 text-center">
                                                 {row.maintain_stock ? <Check size={16} className="text-brand-500 mx-auto" /> : <X size={16} className="text-surface-300 mx-auto" />}
                                             </td>
@@ -455,7 +551,25 @@ export default function InventoryPage() {
                                                 {row.maintain_stock ? row.min_stock_level : '—'}
                                             </td>
 
-                                            {/* Edit Actions */}
+                                            {/* Max Qty */}
+                                            <td className="px-5 py-3.5 text-center">
+                                                {isEditing && row.maintain_stock ? (
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={editForm.max_stock_level}
+                                                        onChange={e => setEditForm(prev => ({ ...prev, max_stock_level: e.target.value }))}
+                                                        className="w-16 px-2 py-1 text-xs text-center rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all font-mono"
+                                                        placeholder="0"
+                                                    />
+                                                ) : (
+                                                    <span className={`text-xs font-mono ${isAboveMax ? 'text-orange-600 font-bold' : 'text-surface-600'}`}>
+                                                        {row.maintain_stock ? (row.max_stock_level > 0 ? row.max_stock_level : '—') : '—'}
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            {/* Edit/Delete Actions */}
                                             {canManageInventory && (
                                                 <td className="px-5 py-3.5 text-center">
                                                     {isEditing ? (
@@ -485,23 +599,25 @@ export default function InventoryPage() {
                                                             >
                                                                 <Pencil size={13} />
                                                             </button>
-                                                            {confirmDeleteId === row.id ? (
-                                                                <button
-                                                                    onClick={() => deleteItem(row)}
-                                                                    disabled={deletingId === row.id}
-                                                                    className="px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold shadow-sm transition-all disabled:opacity-40 animate-pulse"
-                                                                    title="Click again to confirm delete"
-                                                                >
-                                                                    {deletingId === row.id ? <Loader2 size={11} className="animate-spin" /> : 'Confirm?'}
-                                                                </button>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => deleteItem(row)}
-                                                                    className="p-1.5 rounded-lg hover:bg-red-100 text-surface-400 hover:text-red-600 transition-colors"
-                                                                    title="Delete item"
-                                                                >
-                                                                    <Trash2 size={13} />
-                                                                </button>
+                                                            {canDelete && (
+                                                                confirmDeleteId === row.id ? (
+                                                                    <button
+                                                                        onClick={() => deleteItem(row)}
+                                                                        disabled={deletingId === row.id}
+                                                                        className="px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold shadow-sm transition-all disabled:opacity-40 animate-pulse"
+                                                                        title="Click again to confirm delete"
+                                                                    >
+                                                                        {deletingId === row.id ? <Loader2 size={11} className="animate-spin" /> : 'Confirm?'}
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => deleteItem(row)}
+                                                                        className="p-1.5 rounded-lg hover:bg-red-100 text-surface-400 hover:text-red-600 transition-colors"
+                                                                        title="Delete item"
+                                                                    >
+                                                                        <Trash2 size={13} />
+                                                                    </button>
+                                                                )
                                                             )}
                                                         </div>
                                                     )}
@@ -515,8 +631,11 @@ export default function InventoryPage() {
                     </table>
                 </div>
                 {!loading && (
-                    <div className="px-5 py-3 bg-surface-50/50 border-t border-surface-200 text-xs text-surface-700/50 font-medium">
-                        Showing {filtered.length} of {data.length} items
+                    <div className="px-5 py-3 bg-surface-50/50 border-t border-surface-200 text-xs text-surface-700/50 font-medium flex items-center justify-between">
+                        <span>Showing {filtered.length} of {data.length} items</span>
+                        {selectedIds.size > 0 && (
+                            <span className="text-blue-600 font-semibold">{selectedIds.size} selected</span>
+                        )}
                     </div>
                 )}
             </div>
@@ -539,10 +658,8 @@ export default function InventoryPage() {
             <CreateIntentModal
                 open={intentModalOpen}
                 onClose={() => setIntentModalOpen(false)}
-                // Note: No selectedProjectId so it defaults to General Stock
             />
 
-            {/* Popover animation */}
             <style>{`
                 @keyframes popIn {
                     from { transform: translateX(-50%) scale(0.95) translateY(-4px); opacity: 0; }

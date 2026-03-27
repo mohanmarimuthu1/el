@@ -16,6 +16,7 @@ const emptyForm = {
     description: '',
     maintain_stock: false,
     min_stock_level: '0',
+    max_stock_level: '0',
 }
 
 export default function AddInventoryModal({ open, onClose, onSuccess }) {
@@ -55,6 +56,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
             description: form.description.trim() || null,
             maintain_stock: form.maintain_stock,
             min_stock_level: form.maintain_stock ? (parseInt(form.min_stock_level) || 0) : 0,
+            max_stock_level: form.maintain_stock ? (parseInt(form.max_stock_level) || 0) : 0,
         })
 
         if (insertError) {
@@ -206,21 +208,39 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                         </button>
                     </div>
 
-                    {/* Min Stock Level — conditional */}
+                    {/* Min + Max Stock Level — conditional */}
                     {form.maintain_stock && (
-                        <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 animate-in fade-in duration-200">
-                            <label className="block text-xs font-semibold text-brand-700 uppercase tracking-wider mb-2">
-                                Minimum Stock Level
-                            </label>
-                            <input
-                                type="number"
-                                min="0"
-                                value={form.min_stock_level}
-                                onChange={e => handle('min_stock_level', e.target.value)}
-                                placeholder="e.g. 5"
-                                className="w-full px-3 py-2 text-sm rounded-xl border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
-                            />
-                            <p className="text-[10px] text-brand-600 mt-1.5">Alert will trigger when stock falls below this value.</p>
+                        <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 animate-in fade-in duration-200 space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-brand-700 uppercase tracking-wider mb-2">
+                                        Minimum Quantity
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={form.min_stock_level}
+                                        onChange={e => handle('min_stock_level', e.target.value)}
+                                        placeholder="e.g. 5"
+                                        className="w-full px-3 py-2 text-sm rounded-xl border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                                    />
+                                    <p className="text-[10px] text-brand-600 mt-1">Alert when stock falls below this.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-orange-700 uppercase tracking-wider mb-2">
+                                        Maximum Quantity
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={form.max_stock_level}
+                                        onChange={e => handle('max_stock_level', e.target.value)}
+                                        placeholder="e.g. 50"
+                                        className="w-full px-3 py-2 text-sm rounded-xl border border-orange-300 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all font-mono"
+                                    />
+                                    <p className="text-[10px] text-orange-600 mt-1">Warning when stock exceeds this.</p>
+                                </div>
+                            </div>
                         </div>
                     )}
 

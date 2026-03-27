@@ -274,7 +274,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                 >
                                     <Briefcase size={18} className={intentType === 'project_intent' ? 'text-brand-500' : 'text-surface-400'} />
                                     <div>
-                                        <p className="text-sm font-bold">Project Intent</p>
+                                        <p className="text-sm font-bold">Project Stock</p>
                                         <p className="text-[10px] mt-0.5 opacity-70">Linked to a project</p>
                                     </div>
                                 </button>
@@ -347,10 +347,11 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                 </div>
 
 
-                                {/* Input Design List / Product Rows */}
+                            {/* Product rows — only shown once project is selected (or inside project context) */}
+                                {(selectedProjectId || projectId) ? (
                                 <div>
                                     <div className="flex items-center justify-between mb-3">
-                                        <label className="text-xs font-bold text-surface-700/70 uppercase tracking-wider">Input Design List</label>
+                                        <label className="text-xs font-bold text-surface-700/70 uppercase tracking-wider">Design Input List</label>
                                         <span className="text-[10px] text-surface-400">{products.length} item{products.length !== 1 ? 's' : ''}</span>
                                     </div>
 
@@ -376,6 +377,12 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                         <Plus size={15} /> Add Another Product
                                     </button>
                                 </div>
+                                ) : (
+                                    <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 px-4 py-5 text-center">
+                                        <p className="text-sm font-semibold text-amber-700">Select a project first</p>
+                                        <p className="text-xs text-amber-600 mt-1">You must choose a target project before adding items.</p>
+                                    </div>
+                                )}
                             </>
                         )}
 
@@ -663,8 +670,8 @@ function ProductRow({ product, index, suggestions, onChange, onSuggestion, onRem
                 )}
             </div>
 
-            {/* Qty + Unit + Make */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Qty + Unit + Make + Model */}
+            <div className="grid grid-cols-2 gap-3">
                 <div>
                     <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Qty <span className="text-red-400">*</span></label>
                     <input
@@ -698,7 +705,7 @@ function ProductRow({ product, index, suggestions, onChange, onSuggestion, onRem
                     <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Model No.</label>
                     <SearchableDropdown
                         category="model_number"
-                        value={product.model_number}
+                        value={product.model_number || ''}
                         onChange={val => onChange('model_number', val)}
                         placeholder="Model..."
                     />

@@ -120,7 +120,7 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
     })
 
     const userName = user?.user_metadata?.full_name?.toLowerCase() || user?.email?.toLowerCase() || ''
-    const authorizedRaisers = ['sarath', 'gopi', 'parthiban', 'bhuvanesh', 'admin', 'owner']
+    const authorizedRaisers = ['sarath', 'gopi', 'parthiban', 'bhuvanesh', 'admin', 'owner', 'manager']
     const isAuthorizedRaiser = authorizedRaisers.some(name => userName.includes(name))
 
     // ─── Sequential Approval Toggle ───
@@ -319,7 +319,11 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
                                 <tr><td colSpan={14} className="px-5 py-10 text-center text-surface-400">No intents found</td></tr>
                             ) : (
                                 tabData.map((row) => (
-                                    <tr key={row.id} className="hover:bg-brand-50/20 relative">
+                                    <tr key={row.id} className={`relative transition-all duration-300 ${
+                                        allMDApproved(row)
+                                            ? 'bg-emerald-50 ring-2 ring-inset ring-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.15)]'
+                                            : 'hover:bg-brand-50/20'
+                                    }`}>
                                         {/* Type badge */}
                                         <td className="px-4 py-4">
                                             {row.intent_type === 'General Stock'

@@ -10,21 +10,22 @@ import DesignTab from '@/components/DesignTab'
 import CreateIntentModal from '@/components/CreateIntentModal'
 import PurchaseIntentsPage from '@/pages/PurchaseIntentsPage'
 import DespatchPage from '@/pages/DespatchPage'
-import VendorRegistrySection from '@/components/VendorRegistrySection'
+import VendorQuoteSection from '@/components/VendorQuoteSection'
 
 const TAB_CONFIG = [
-    { id: 'info', label: 'Info', icon: Briefcase, gated: false },
-    { id: 'design', label: 'Specs & Design', icon: ListChecks, gated: false },
-    { id: 'intents', label: 'Procurement', icon: ShoppingCart, gated: true },
-    { id: 'vendors', label: 'Vendors', icon: Users, gated: true },
-    { id: 'despatch', label: 'Despatch', icon: Truck, gated: true },
+    { id: 'info',    label: 'Info',           icon: Briefcase,   gated: false },
+    { id: 'specs',   label: 'Specifications', icon: ListChecks,  gated: false },
+    { id: 'design',  label: 'Design Input',   icon: Palette,     gated: false },
+    { id: 'intents', label: 'Procurement',    icon: ShoppingCart,gated: true  },
+    { id: 'vendors', label: 'Vendors',        icon: Users,       gated: true  },
+    { id: 'despatch',label: 'Despatch',       icon: Truck,       gated: true  },
 ]
 
 export default function ProjectWorkspacePage() {
     const { projectId } = useParams()
     const navigate = useNavigate()
-    const { isAdmin, isOwner } = useAuth()
-    const canEdit = isAdmin || isOwner
+    const { isAdmin, isOwner, user, role } = useAuth()
+    const canEdit = isAdmin || isOwner || role === 'manager'
 
     const [project, setProject] = useState(null)
     const [loading, setLoading] = useState(true)
@@ -42,6 +43,10 @@ export default function ProjectWorkspacePage() {
     const [editForm, setEditForm] = useState({})
     const [saving, setSaving] = useState(false)
     const [saveMsg, setSaveMsg] = useState('')
+
+    // Delete project
+    const [deleteConfirm, setDeleteConfirm] = useState(false)
+    const [deleting, setDeleting] = useState(false)
 
     useEffect(() => {
         if (projectId) {
@@ -131,6 +136,50 @@ export default function ProjectWorkspacePage() {
         setSaving(false)
     }
 
+    async function handleDeleteProject() {
+        if (!deleteConfirm) {
+            setDeleteConfirm(true)
+            setTimeout(() => setDeleteConfirm(false), 5000)
+            return
+        }
+        setDeleting(true)
+        // Cascading delete: specs, designs, purchase_intent_items via headers, then headers, then project
+        // Get all intent headers for this project
+        const { data: headers } = await supabase
+            .from('purchase_intent_headers')
+            .select('id')
+            .eq('project_id', projectId)
+
+        if (headers?.length > 0) {
+            const headerIds = headers.map(h => h.id)
+            await supabase.from('purchase_intent_items').delete().in('header_id', headerIds)
+            await supabase.from('purchase_intent_headers').delete().in('id', headerIds)
+        }
+
+        await supabase.from('project_specs').delete().eq('project_id', projectId)
+        await supabase.from('project_designs').delete().eq('project_id', projectId)
+        await supabase.from('despatches').delete().eq('project_id', projectId)
+
+        const { error } = await supabase
+            .from('projects_metadata')
+            .delete()
+            .eq('id', projectId)
+
+        if (!error) {
+            await supabase.from('activity_logs').insert({
+                user_name: user?.user_metadata?.full_name || user?.email || 'User',
+                user_role: role,
+                action: `Deleted project: ${project?.name || projectId}`,
+                entity_type: 'project',
+            })
+            navigate('/projects')
+        } else {
+            alert(`Failed to delete project: ${error.message}`)
+            setDeleting(false)
+            setDeleteConfirm(false)
+        }
+    }
+
     function handleDesignUploaded() {
         fetchProject()
     }
@@ -181,6 +230,23 @@ export default function ProjectWorkspacePage() {
                         </p>
                     </div>
                 </div>
+
+                {/* Delete Project (Admin/Owner only) */}
+                {canEdit && (
+                    <button
+                        onClick={handleDeleteProject}
+                        disabled={deleting}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all ${
+                            deleteConfirm
+                                ? 'bg-red-600 text-white animate-pulse shadow-lg shadow-red-500/30'
+                                : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                        }`}
+                        title="Delete this project and all its data"
+                    >
+                        {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                        {deleteConfirm ? 'Confirm Delete Project' : 'Delete Project'}
+                    </button>
+                )}
             </div>
 
             {/* Tabs */}
@@ -202,7 +268,7 @@ export default function ProjectWorkspacePage() {
                                         ? 'text-surface-300 cursor-not-allowed'
                                         : 'text-surface-500 hover:text-surface-700 hover:bg-white/50'
                             }`}
-                            title={isGated ? 'Upload a design first to unlock this tab' : tab.label}
+                            title={isGated ? 'Add a design input first to unlock this tab' : tab.label}
                         >
                             {isGated ? <Lock size={15} /> : <Icon size={15} />}
                             <span className="hidden sm:inline">{tab.label}</span>
@@ -213,6 +279,8 @@ export default function ProjectWorkspacePage() {
 
             {/* Tab Content */}
             <div className="animate-in fade-in duration-300">
+
+                {/* ─── INFO TAB ─── */}
                 {activeTab === 'info' && (
                     <div className="bg-white rounded-3xl border border-surface-200 p-8 shadow-sm">
                         <div className="flex items-center justify-between mb-6">
@@ -304,80 +372,83 @@ export default function ProjectWorkspacePage() {
                     </div>
                 )}
 
-                {activeTab === 'design' && (
-                    <div className="space-y-6">
-                        {/* Specs Section */}
-                        <div className="bg-white rounded-3xl border border-surface-200 p-8 shadow-sm space-y-6">
-                            <h3 className="text-lg font-bold text-surface-900 flex items-center gap-2">
-                                <ListChecks size={18} className="text-brand-500" />
-                                Project Specifications
-                            </h3>
+                {/* ─── SPECIFICATIONS TAB ─── */}
+                {activeTab === 'specs' && (
+                    <div className="bg-white rounded-3xl border border-surface-200 p-8 shadow-sm space-y-6">
+                        <h3 className="text-lg font-bold text-surface-900 flex items-center gap-2">
+                            <ListChecks size={18} className="text-brand-500" />
+                            Project Specifications
+                        </h3>
 
-                            {/* Add spec */}
-                            <div className="flex gap-3">
-                                <input
-                                    type="text"
-                                    value={newSpec}
-                                    onChange={(e) => setNewSpec(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && addSpec()}
-                                    placeholder="Add specification detail..."
-                                    className="flex-1 px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                                />
-                                <button
-                                    onClick={addSpec}
-                                    disabled={addingSpec || !newSpec.trim()}
-                                    className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl text-white bg-brand-500 hover:bg-brand-600 shadow-lg shadow-brand-500/25 transition-all active:scale-95 disabled:opacity-50"
-                                >
-                                    {addingSpec ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                                    Add
-                                </button>
-                            </div>
-
-                            {/* Specs list */}
-                            {specsLoading ? (
-                                <div className="space-y-2">
-                                    {[1,2,3].map(i => <div key={i} className="h-12 bg-surface-100 rounded-xl animate-pulse" />)}
-                                </div>
-                            ) : specs.length === 0 ? (
-                                <div className="py-10 text-center">
-                                    <ListChecks size={32} className="mx-auto text-surface-200 mb-2" />
-                                    <p className="text-surface-400 text-sm font-medium">No specifications added yet</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {specs.map((s, idx) => (
-                                        <div key={s.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-50 border border-surface-100 group hover:border-brand-200 hover:bg-brand-50/30 transition-all">
-                                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-100 text-brand-600 text-[10px] font-bold shrink-0">
-                                                {idx + 1}
-                                            </span>
-                                            <span className="flex-1 text-sm text-surface-800 font-medium">{s.spec_detail}</span>
-                                            <button
-                                                onClick={() => deleteSpec(s.id)}
-                                                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-surface-400 hover:text-red-500 transition-all"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                        {/* Add spec */}
+                        <div className="flex gap-3">
+                            <input
+                                type="text"
+                                value={newSpec}
+                                onChange={(e) => setNewSpec(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && addSpec()}
+                                placeholder="Add specification detail..."
+                                className="flex-1 px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                            />
+                            <button
+                                onClick={addSpec}
+                                disabled={addingSpec || !newSpec.trim()}
+                                className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl text-white bg-brand-500 hover:bg-brand-600 shadow-lg shadow-brand-500/25 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {addingSpec ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                Add
+                            </button>
                         </div>
 
-                        {/* Design Section */}
-                        <DesignTab projectId={projectId} onDesignUploaded={handleDesignUploaded} />
+                        {/* Specs list */}
+                        {specsLoading ? (
+                            <div className="space-y-2">
+                                {[1,2,3].map(i => <div key={i} className="h-12 bg-surface-100 rounded-xl animate-pulse" />)}
+                            </div>
+                        ) : specs.length === 0 ? (
+                            <div className="py-10 text-center">
+                                <ListChecks size={32} className="mx-auto text-surface-200 mb-2" />
+                                <p className="text-surface-400 text-sm font-medium">No specifications added yet</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {specs.map((s, idx) => (
+                                    <div key={s.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-50 border border-surface-100 group hover:border-brand-200 hover:bg-brand-50/30 transition-all">
+                                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-100 text-brand-600 text-[10px] font-bold shrink-0">
+                                            {idx + 1}
+                                        </span>
+                                        <span className="flex-1 text-sm text-surface-800 font-medium">{s.spec_detail}</span>
+                                        <button
+                                            onClick={() => deleteSpec(s.id)}
+                                            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-surface-400 hover:text-red-500 transition-all"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
+                {/* ─── DESIGN INPUT TAB ─── */}
+                {activeTab === 'design' && (
+                    <DesignTab projectId={projectId} onDesignUploaded={handleDesignUploaded} />
+                )}
+
+                {/* ─── PROCUREMENT TAB ─── */}
                 {activeTab === 'intents' && designApproved && (
                     <PurchaseIntentsPage selectedProjectId={projectId} />
                 )}
 
+                {/* ─── VENDORS TAB ─── */}
                 {activeTab === 'vendors' && designApproved && (
                     <div className="space-y-6">
-                        <VendorRegistrySection projectId={projectId} />
+                        <VendorQuoteSection selectedProjectId={projectId} />
                     </div>
                 )}
 
+                {/* ─── DESPATCH TAB ─── */}
                 {activeTab === 'despatch' && designApproved && (
                     <DespatchPage selectedProjectId={projectId} />
                 )}
