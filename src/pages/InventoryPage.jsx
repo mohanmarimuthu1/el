@@ -27,7 +27,7 @@ export default function InventoryPage() {
 
     // Inline editing state
     const [editingId, setEditingId] = useState(null)
-    const [editForm, setEditForm] = useState({ quantity: '', uom: 'NOS', description: '', reason: '', max_stock_level: '' })
+    const [editForm, setEditForm] = useState({ product_name: '', manufacturer: '', model_number: '', serial_number: '', quantity: '', uom: 'NOS', description: '', reason: '', min_stock_level: '', max_stock_level: '' })
     const [saving, setSaving] = useState(false)
     const [deletingId, setDeletingId] = useState(null)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -119,24 +119,35 @@ export default function InventoryPage() {
     function startEdit(row) {
         setEditingId(row.id)
         setEditForm({
+            product_name: row.product_name || '',
+            manufacturer: row.manufacturer || '',
+            model_number: row.model_number || '',
+            serial_number: row.serial_number || '',
             quantity: String(row.quantity ?? 0),
             uom: row.uom || 'NOS',
             description: row.description || '',
             reason: '',
+            min_stock_level: String(row.min_stock_level ?? 0),
             max_stock_level: String(row.max_stock_level ?? 0),
         })
     }
 
     function cancelEdit() {
         setEditingId(null)
-        setEditForm({ quantity: '', uom: 'NOS', description: '', reason: '', max_stock_level: '' })
+        setEditForm({ product_name: '', manufacturer: '', model_number: '', serial_number: '', quantity: '', uom: 'NOS', description: '', reason: '', min_stock_level: '', max_stock_level: '' })
     }
 
     async function saveEdit(row) {
         const newStock = parseInt(editForm.quantity) || 0
         const newUom = editForm.uom || 'NOS'
         const newDesc = editForm.description.trim()
+        const newProductName = editForm.product_name.trim()
+        const newManufacturer = editForm.manufacturer.trim()
+        const newModelNumber = editForm.model_number.trim()
+        const newSerialNumber = editForm.serial_number.trim()
+        const newMinStock = parseInt(editForm.min_stock_level) || 0
         const newMaxStock = parseInt(editForm.max_stock_level) || 0
+
         const stockChanged = newStock !== row.quantity
         const uomChanged = newUom !== (row.uom || 'NOS')
 
@@ -146,21 +157,33 @@ export default function InventoryPage() {
         if (stockChanged) changes.push(`Stock: ${row.quantity} → ${newStock}`)
         if (uomChanged) changes.push(`UOM: ${row.uom || 'NOS'} → ${newUom}`)
         if (newDesc !== (row.description || '')) changes.push(`Description updated`)
+        if (newProductName !== (row.product_name || '')) changes.push(`Product Name updated`)
+        if (newManufacturer !== (row.manufacturer || '')) changes.push(`Manufacturer updated`)
+        if (newModelNumber !== (row.model_number || '')) changes.push(`Model Number updated`)
+        if (newSerialNumber !== (row.serial_number || '')) changes.push(`Serial No updated`)
+        if (newMinStock !== (row.min_stock_level ?? 0)) changes.push(`Min Stock: ${row.min_stock_level ?? 0} → ${newMinStock}`)
         if (newMaxStock !== (row.max_stock_level ?? 0)) changes.push(`Max Stock: ${row.max_stock_level ?? 0} → ${newMaxStock}`)
 
         if (changes.length === 0) { cancelEdit(); return }
 
         setSaving(true)
 
+        const updatePayload = {
+            product_name: newProductName || null,
+            manufacturer: newManufacturer || null,
+            model_number: newModelNumber || null,
+            serial_number: newSerialNumber || null,
+            quantity: newStock,
+            uom: newUom,
+            description: newDesc || null,
+            min_stock_level: newMinStock,
+            max_stock_level: newMaxStock,
+            updated_at: new Date().toISOString(),
+        }
+
         const { error } = await supabase
             .from('inventory')
-            .update({
-                quantity: newStock,
-                uom: newUom,
-                description: newDesc || null,
-                max_stock_level: newMaxStock,
-                updated_at: new Date().toISOString(),
-            })
+            .update(updatePayload)
             .eq('id', row.id)
 
         if (!error) {
@@ -183,7 +206,7 @@ export default function InventoryPage() {
             })
             setData(prev => prev.map(r =>
                 r.id === row.id
-                    ? { ...r, quantity: newStock, uom: newUom, description: newDesc || null, max_stock_level: newMaxStock, updated_at: new Date().toISOString() }
+                    ? { ...r, ...updatePayload }
                     : r
             ))
         }
@@ -206,9 +229,6 @@ export default function InventoryPage() {
 
         const { error } = await supabase.from('inventory').delete().eq('id', row.id)
         if (error) {
-<<<<<<< HEAD
-            alert(`Delete failed: ${error.message}`)
-=======
             console.error('Delete failed:', error)
             
             if (error.code === '23503' || error.message?.includes('dispatches_inventory_id_fkey')) {
@@ -217,7 +237,6 @@ export default function InventoryPage() {
                 alert(`Failed to delete item: ${error.message || 'Unknown error'}`)
             }
             
->>>>>>> 9cca64481af236e850f434b7b712c891a0b40137
             setDeletingId(null)
             return
         }
@@ -411,13 +430,33 @@ export default function InventoryPage() {
                                             )}
 
                                             <td className="px-5 py-3.5">
-                                                <p className="font-semibold text-surface-800 text-sm whitespace-nowrap">{row.product_name || '—'}</p>
+                                                {isEditing ? (
+                                                    <input type="text" value={editForm.product_name} onChange={e => setEditForm(prev => ({ ...prev, product_name: e.target.value }))} className="w-full min-w-[120px] px-2 py-1 text-sm rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all font-semibold" placeholder="Name" />
+                                                ) : (
+                                                    <p className="font-semibold text-surface-800 text-sm whitespace-nowrap">{row.product_name || '—'}</p>
+                                                )}
                                             </td>
                                             <td className="px-5 py-3.5">
-                                                <p className="text-[11px] text-surface-600 font-medium uppercase tracking-wide whitespace-nowrap">{row.manufacturer || '—'}</p>
+                                                {isEditing ? (
+                                                    <input type="text" value={editForm.manufacturer} onChange={e => setEditForm(prev => ({ ...prev, manufacturer: e.target.value }))} className="w-full min-w-[100px] px-2 py-1 text-xs rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all uppercase tracking-wide" placeholder="Manufacturer" />
+                                                ) : (
+                                                    <p className="text-[11px] text-surface-600 font-medium uppercase tracking-wide whitespace-nowrap">{row.manufacturer || '—'}</p>
+                                                )}
                                             </td>
-                                            <td className="px-5 py-3.5 text-surface-700 font-mono text-xs">{row.model_number || '—'}</td>
-                                            <td className="px-5 py-3.5 font-mono text-xs text-surface-700">{row.serial_number || '—'}</td>
+                                            <td className="px-5 py-3.5">
+                                                {isEditing ? (
+                                                    <input type="text" value={editForm.model_number} onChange={e => setEditForm(prev => ({ ...prev, model_number: e.target.value }))} className="w-full min-w-[80px] px-2 py-1 text-xs rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all font-mono" placeholder="Model No." />
+                                                ) : (
+                                                    <span className="text-surface-700 font-mono text-xs">{row.model_number || '—'}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                {isEditing ? (
+                                                    <input type="text" value={editForm.serial_number} onChange={e => setEditForm(prev => ({ ...prev, serial_number: e.target.value }))} className="w-full min-w-[80px] px-2 py-1 text-xs rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all font-mono" placeholder="Serial No." />
+                                                ) : (
+                                                    <span className="font-mono text-xs text-surface-700">{row.serial_number || '—'}</span>
+                                                )}
+                                            </td>
 
                                             {/* Quantity */}
                                             <td className="px-5 py-3.5 text-center">
@@ -558,8 +597,12 @@ export default function InventoryPage() {
                                             </td>
 
                                             {/* Min Qty */}
-                                            <td className="px-5 py-3.5 text-center text-xs font-mono text-surface-600">
-                                                {row.maintain_stock ? row.min_stock_level : '—'}
+                                            <td className="px-5 py-3.5 text-center">
+                                                {isEditing && row.maintain_stock ? (
+                                                    <input type="number" min="0" value={editForm.min_stock_level} onChange={e => setEditForm(prev => ({ ...prev, min_stock_level: e.target.value }))} className="w-16 mx-auto px-2 py-1 text-xs text-center rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all font-mono text-surface-600" placeholder="0" />
+                                                ) : (
+                                                    <span className="text-xs font-mono text-surface-600">{row.maintain_stock ? row.min_stock_level : '—'}</span>
+                                                )}
                                             </td>
 
                                             {/* Max Qty */}
