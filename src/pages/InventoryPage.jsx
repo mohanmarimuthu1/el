@@ -158,6 +158,13 @@ export default function InventoryPage() {
 
         if (error) {
             console.error('Delete failed:', error)
+            
+            if (error.code === '23503' || error.message?.includes('dispatches_inventory_id_fkey')) {
+                alert(`Cannot delete "${row.product_name || row.model_number || 'item'}": This item is linked to existing dispatch records. You must completely delete its dispatch history first.`)
+            } else {
+                alert(`Failed to delete item: ${error.message || 'Unknown error'}`)
+            }
+            
             setDeletingId(null)
             return
         }
