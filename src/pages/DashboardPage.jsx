@@ -21,8 +21,8 @@ export default function DashboardPage() {
         setLoading(true)
         try {
             // Total Stock
-            const { data: inventory } = await supabase.from('inventory').select('stock_count')
-            const totalStock = inventory?.reduce((sum, r) => sum + (r.stock_count || 0), 0) || 0
+            const { data: inventory } = await supabase.from('inventory').select('quantity')
+            const totalStock = inventory?.reduce((sum, r) => sum + (r.quantity || 0), 0) || 0
 
             // Pending Approvals
             const { count: pendingApprovals } = await supabase

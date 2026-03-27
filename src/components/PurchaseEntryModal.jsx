@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
-import { X, Plus, Loader2, ShoppingBag } from 'lucide-react'
+import { X, Plus, Loader2, ShoppingBag, ToggleLeft, ToggleRight } from 'lucide-react'
 import SearchableDropdown from '@/components/SearchableDropdown'
 
 const UOM_OPTIONS = ['NOS', 'MTR', 'KG', 'SET', 'ROLL', 'BOX', 'PCS', 'PAIR', 'LOT', 'LTR']
@@ -11,12 +11,14 @@ const emptyForm = {
     manufacturer: '',
     model_number: '',
     serial_number: '',
-    stock_count: '1',
+    quantity: '1',
     uom: 'NOS',
     description: '',
     invoice_no: '',
     vendor_name: '',
     invoice_date: '',
+    maintain_stock: false,
+    min_stock_level: '0',
 }
 
 export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
@@ -59,11 +61,13 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
         const { error: insertError } = await supabase.from('inventory').insert({
             product_name: form.product_name.trim(),
             manufacturer: form.manufacturer.trim().toUpperCase(),
-            model_number: form.model_number.trim().toUpperCase() || null,
+            model_number: form.model_number.trim() || '-',
             serial_number: form.serial_number.trim() || null,
-            stock_count: parseInt(form.stock_count) || 0,
+            quantity: parseInt(form.quantity) || 0,
             uom: form.uom || 'NOS',
             description: form.description.trim() || null,
+            maintain_stock: form.maintain_stock,
+            min_stock_level: form.maintain_stock ? (parseInt(form.min_stock_level) || 0) : 0,
         })
 
         if (insertError) {
@@ -75,7 +79,7 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
         await supabase.from('activity_logs').insert({
             user_name: user?.user_metadata?.full_name || user?.email || 'User',
             user_role: role,
-            action: `Purchase entry: ${form.product_name.trim()} × ${form.stock_count} | Vendor: ${form.vendor_name} | Invoice: ${form.invoice_no} (${form.invoice_date})`,
+            action: `Purchase entry: ${form.product_name.trim()} × ${form.quantity} | Vendor: ${form.vendor_name} | Invoice: ${form.invoice_no} (${form.invoice_date})`,
             entity_type: 'inventory',
         })
 
@@ -177,6 +181,7 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
                                     className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
                                 />
                             </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
@@ -190,16 +195,17 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Model No.</label>
+                                    <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Model Number</label>
                                     <SearchableDropdown
                                         category="model_number"
                                         value={form.model_number}
                                         onChange={val => handle('model_number', val)}
-                                        placeholder="Select or type..."
+                                        placeholder="e.g. GV2-ME20"
                                     />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-4">
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Serial No.</label>
                                     <input
@@ -209,34 +215,68 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
                                         className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Qty</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        value={form.stock_count}
-                                        onChange={e => handle('stock_count', e.target.value)}
-                                        className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">UOM</label>
-                                    <SearchableDropdown
-                                        category="uom"
-                                        value={form.uom}
-                                        onChange={val => handle('uom', val)}
-                                        placeholder="Select UOM"
-                                    />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Qty</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={form.quantity}
+                                            onChange={e => handle('quantity', e.target.value)}
+                                            className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">UOM</label>
+                                        <SearchableDropdown
+                                            category="uom"
+                                            value={form.uom}
+                                            onChange={val => handle('uom', val)}
+                                            placeholder="NOS"
+                                        />
+                                    </div>
                                 </div>
                             </div>
+
                             <div>
-                                <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Description</label>
-                                <input
+                                <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Product Description</label>
+                                <textarea
                                     value={form.description}
                                     onChange={e => handle('description', e.target.value)}
-                                    placeholder="Brief notes..."
-                                    className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                                    rows={2}
+                                    placeholder="Brief specifications..."
+                                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all resize-none"
                                 />
+                            </div>
+
+                            <div className="p-4 rounded-xl border border-surface-200 bg-surface-50">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <p className="text-xs font-bold text-surface-800 uppercase tracking-wider">Maintain Stock</p>
+                                        <p className="text-[10px] text-surface-500">Track inventory levels</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handle('maintain_stock', !form.maintain_stock)}
+                                        className={`${form.maintain_stock ? 'text-brand-500' : 'text-surface-300'} transition-colors`}
+                                    >
+                                        {form.maintain_stock ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                                    </button>
+                                </div>
+                                {form.maintain_stock && (
+                                    <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="flex-1">
+                                            <label className="block text-[10px] font-bold text-brand-600 uppercase mb-1">Min. Stock Level</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={form.min_stock_level}
+                                                onChange={e => handle('min_stock_level', e.target.value)}
+                                                className="w-full px-3 py-2 text-xs rounded-lg border border-brand-200 focus:ring-2 focus:ring-brand-500/20 outline-none font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

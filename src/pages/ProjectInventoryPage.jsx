@@ -6,19 +6,19 @@ import { LayoutGrid, Search, RefreshCw, Box, ArrowRight, Filter, ChevronDown, Ch
 
 export default function ProjectInventoryPage({ selectedProjectId }) {
     const { user } = useAuth()
-    const [dispatches, setDispatches] = useState([])
+    const [despatches, setDespatches] = useState([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
     const [expandedProjects, setExpandedProjects] = useState({})
 
     useEffect(() => {
-        fetchDispatches()
+        fetchDespatches()
     }, [])
 
-    async function fetchDispatches() {
+    async function fetchDespatches() {
         setLoading(true)
         let query = supabase
-            .from('dispatches')
+            .from('despatches')
             .select('*')
         
         if (selectedProjectId) {
@@ -29,7 +29,7 @@ export default function ProjectInventoryPage({ selectedProjectId }) {
             .order('created_at', { ascending: false })
         
         if (!error && data) {
-            setDispatches(data)
+            setDespatches(data)
             // Expand all projects by default initially
             const projects = [...new Set(data.map(d => d.project_name))]
             const initialExpanded = {}
@@ -39,22 +39,22 @@ export default function ProjectInventoryPage({ selectedProjectId }) {
         setLoading(false)
     }
 
-    // Group dispatches by project name
-    const groupedData = dispatches.reduce((acc, dispatch) => {
-        const projectName = dispatch.project_name || 'Unassigned Project'
+    // Group despatches by project name
+    const groupedData = despatches.reduce((acc, despatch) => {
+        const projectName = despatch.project_name || 'Unassigned Project'
         if (!acc[projectName]) {
             acc[projectName] = {
                 name: projectName,
                 items: [],
                 totalItems: 0,
-                lastActivity: dispatch.created_at
+                lastActivity: despatch.created_at
             }
         }
-        acc[projectName].items.push(dispatch)
-        acc[projectName].totalItems += dispatch.quantity_dispatched
+        acc[projectName].items.push(despatch)
+        acc[projectName].totalItems += despatch.quantity_despatched
         // Keep track of the most recent activity for the project
-        if (new Date(dispatch.created_at) > new Date(acc[projectName].lastActivity)) {
-            acc[projectName].lastActivity = dispatch.created_at
+        if (new Date(despatch.created_at) > new Date(acc[projectName].lastActivity)) {
+            acc[projectName].lastActivity = despatch.created_at
         }
         return acc
     }, {})
@@ -81,12 +81,12 @@ export default function ProjectInventoryPage({ selectedProjectId }) {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-surface-900 tracking-tight flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-surface-900 tracking-tight flex items-center gap-2 uppercase">
                         <LayoutGrid size={22} className="text-brand-500" />
-                        Project Material Usage
+                        Project Despatch History
                     </h2>
                     <p className="text-sm text-surface-700/60 mt-0.5">
-                        {selectedProjectId ? 'Materials allocated to the selected project' : 'Inventory materials allocated across all projects'}
+                        {selectedProjectId ? 'Despatch logs for the selected project' : 'Despatch logs across all projects'}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ export default function ProjectInventoryPage({ selectedProjectId }) {
                         />
                     </div>
                     <button
-                        onClick={fetchDispatches}
+                        onClick={fetchDespatches}
                         className="p-2 rounded-xl border border-surface-200 bg-white hover:bg-surface-50 text-surface-700 transition-colors"
                         title="Refresh"
                     >
@@ -183,11 +183,11 @@ export default function ProjectInventoryPage({ selectedProjectId }) {
                                                     </td>
                                                     <td className="px-6 py-4 text-center">
                                                         <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded-lg bg-surface-100 text-surface-700 font-black text-xs">
-                                                            {item.quantity_dispatched}
+                                                            {item.quantity_despatched}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-surface-600 text-xs font-medium">
-                                                        {item.dispatched_by}
+                                                        {item.despatched_by}
                                                     </td>
                                                     <td className="px-6 py-4 text-right text-xs text-surface-400 font-mono">
                                                         {formatTimestamp(item.created_at)}

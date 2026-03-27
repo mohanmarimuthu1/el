@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
-import { X, Plus, Loader2, CheckCircle2, ListChecks, Warehouse, Briefcase, Trash2, Search } from 'lucide-react'
+import { X, Plus, Loader2, CheckCircle2, ListChecks, Warehouse, Briefcase, Trash2, Search, Palette } from 'lucide-react'
 import SearchableDropdown from '@/components/SearchableDropdown'
 
 const BLANK_PRODUCT = () => ({
@@ -10,6 +10,7 @@ const BLANK_PRODUCT = () => ({
     quantity_required: '',
     unit_of_measurement: '',
     make: '',
+    model_number: '',
 })
 
 export default function CreateIntentModal({ open, onClose, onSuccess, selectedProjectId }) {
@@ -21,6 +22,8 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
     // Shared fields
     const [department, setDepartment] = useState('Electrical')
     const [raisedBy, setRaisedBy] = useState('')
+    const [projectId, setProjectId] = useState(selectedProjectId || '')
+    const [projects, setProjects] = useState([])
 
     // Product rows (for project intent bulk-add)
     const [products, setProducts] = useState([BLANK_PRODUCT()])
@@ -39,9 +42,11 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
     // Inventory suggestions (for project intent)
     const [inventorySuggestions, setInventorySuggestions] = useState([])
 
-    // Project specs
+    // Project specs & designs
     const [specs, setSpecs] = useState([])
     const [specsLoading, setSpecsLoading] = useState(false)
+    const [designs, setDesigns] = useState([])
+    const [designsLoading, setDesignsLoading] = useState(false)
 
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState('')
@@ -59,14 +64,20 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                 quantity_required: '',
                 unit_of_measurement: '',
                 make: '',
-                model_number: '',
+                make: '',
                 raised_by: user?.user_metadata?.full_name || user?.email || '',
             })
             setError('')
             setSuccess(false)
 
             if (selectedProjectId) {
+                setProjectId(selectedProjectId)
                 fetchSpecs()
+                fetchDesigns()
+                fetchInventorySuggestions()
+            } else {
+                setProjectId('')
+                fetchProjects()
                 fetchInventorySuggestions()
             }
         }
@@ -84,13 +95,34 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
         setSpecsLoading(false)
     }
 
+    async function fetchDesigns() {
+        if (!selectedProjectId) return
+        setDesignsLoading(true)
+        const { data } = await supabase
+            .from('project_designs')
+            .select('*')
+            .eq('project_id', selectedProjectId)
+            .is('file_url', null)
+            .order('created_at', { ascending: true })
+        setDesigns(data || [])
+        setDesignsLoading(false)
+    }
+
     async function fetchInventorySuggestions() {
         const { data } = await supabase
             .from('inventory')
-            .select('id, product_name, manufacturer, model_number, stock_count, uom')
+            .select('id, product_name, manufacturer, quantity, uom')
             .order('product_name', { ascending: true })
             .limit(200)
         setInventorySuggestions(data || [])
+    }
+
+    async function fetchProjects() {
+        const { data } = await supabase
+            .from('projects_metadata')
+            .select('id, name')
+            .order('name')
+        setProjects(data || [])
     }
 
     if (!open) return null
@@ -116,6 +148,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                 description: suggestion.product_name || suggestion.manufacturer || '',
                 unit_of_measurement: suggestion.uom || '',
                 make: suggestion.manufacturer || '',
+                model_number: suggestion.model_number || '',
             } : p
         ))
     }
@@ -126,6 +159,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
         setError('')
 
         if (intentType === 'project_intent') {
+            if (!projectId) return setError('Please select a project')
             // Validate all rows
             for (const p of products) {
                 if (!p.description.trim()) return setError('Product description is required for all rows')
@@ -134,21 +168,30 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
             }
             setSubmitting(true)
 
-            const inserts = products.map(p => ({
-                department,
-                description: p.description.trim(),
-                quantity_required: Number(p.quantity_required),
-                unit_of_measurement: p.unit_of_measurement,
-                make: p.make || null,
+            // Insert ONE header
+            const { data: headerData, error: headerError } = await supabase.from('purchase_intent_headers').insert({
+                project_id: projectId,
+                intent_type: 'Project Stock',
                 raised_by: raisedBy.trim() || null,
-                requested_by: user?.id || null,
-                project_id: selectedProjectId,
-                intent_type: 'project_intent',
-                status: 'Requested',
+                dept: department,
+                status: 'Requested'
+            }).select('id').single()
+
+            if (headerError) { setError(headerError.message); setSubmitting(false); return }
+
+            const headerId = headerData.id
+
+            const inserts = products.map(p => ({
+                header_id: headerId,
+                product_name: p.description.trim(),
+                quantity: Number(p.quantity_required),
+                uom: p.unit_of_measurement,
+                make: p.make || null,
+                model_number: p.model_number || null
             }))
 
-            const { error: insertError } = await supabase.from('purchase_intents').insert(inserts)
-            if (insertError) { setError(insertError.message); setSubmitting(false); return }
+            const { error: itemsError } = await supabase.from('purchase_intent_items').insert(inserts)
+            if (itemsError) { setError(itemsError.message); setSubmitting(false); return }
         } else {
             // General stock
             if (!generalForm.department) return setError('Department is required')
@@ -158,20 +201,28 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
             if (!generalForm.unit_of_measurement) return setError('Unit is required')
 
             setSubmitting(true)
-            const { error: insertError } = await supabase.from('purchase_intents').insert({
-                department: generalForm.department,
-                description: generalForm.description.trim(),
-                quantity_required: Number(generalForm.quantity_required),
-                unit_of_measurement: generalForm.unit_of_measurement,
-                make: generalForm.make || null,
-                model_code: generalForm.model_number || null,
-                raised_by: generalForm.raised_by.trim() || null,
-                requested_by: user?.id || null,
+            
+            const { data: headerData, error: headerError } = await supabase.from('purchase_intent_headers').insert({
                 project_id: null,
-                intent_type: 'general_stock',
-                status: 'Requested',
+                intent_type: 'General Stock',
+                raised_by: generalForm.raised_by.trim() || null,
+                dept: generalForm.department,
+                status: 'Requested'
+            }).select('id').single()
+
+            if (headerError) { setError(headerError.message); setSubmitting(false); return }
+
+            const headerId = headerData.id
+
+            const { error: itemsError } = await supabase.from('purchase_intent_items').insert({
+                header_id: headerId,
+                product_name: generalForm.description.trim(),
+                quantity: Number(generalForm.quantity_required),
+                uom: generalForm.unit_of_measurement,
+                make: generalForm.make || null,
+                model_number: generalForm.model_number || null
             })
-            if (insertError) { setError(insertError.message); setSubmitting(false); return }
+            if (itemsError) { setError(itemsError.message); setSubmitting(false); return }
         }
 
         setSuccess(true)
@@ -248,29 +299,50 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                         {/* ── PROJECT INTENT MODE ── */}
                         {intentType === 'project_intent' && (
                             <>
+                                {/* Project Selector (if not in project context) */}
+                                {!selectedProjectId && (
+                                    <div className="space-y-1.5 p-4 rounded-xl bg-brand-50 border-2 border-brand-200">
+                                        <label className="block text-xs font-bold text-brand-700 uppercase tracking-wider flex items-center justify-between">
+                                            <span>Target Project <span className="text-red-500">*</span></span>
+                                            <span className="text-[9px] bg-brand-200 px-1.5 py-0.5 rounded text-brand-700">MANDATORY</span>
+                                        </label>
+                                        <select
+                                            value={projectId}
+                                            onChange={e => setProjectId(e.target.value)}
+                                            className="w-full px-4 py-2.5 text-sm font-bold rounded-xl border border-brand-300 bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 transition-all cursor-pointer text-brand-900"
+                                        >
+                                            <option value="">Select a Project...</option>
+                                            {projects.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
                                 {/* Department (fixed) + Raised By */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">Department</label>
-                                        <select
+                                        <SearchableDropdown
+                                            category="department"
                                             value={department}
-                                            onChange={e => setDepartment(e.target.value)}
-                                            className="w-full px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all appearance-none cursor-pointer font-semibold text-surface-700"
-                                        >
-                                            <option value="Electrical">Electrical Team</option>
-                                            <option value="Mechanical">Mechanical Team</option>
-                                            <option value="Fabrication">Fabrication Team</option>
-                                        </select>
+                                            onChange={val => setDepartment(val)}
+                                            placeholder="Select department..."
+                                        />
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">Raised By</label>
-                                        <input
-                                            type="text"
+                                        <select
                                             value={raisedBy}
                                             onChange={e => setRaisedBy(e.target.value)}
-                                            placeholder="Your name"
-                                            className="w-full px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                                        />
+                                            className="w-full px-4 py-2.5 text-sm font-semibold rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all cursor-pointer"
+                                        >
+                                            <option value="">Select Name...</option>
+                                            <option value="Sarath">Sarath</option>
+                                            <option value="Gopi">Gopi</option>
+                                            <option value="Parthiban">Parthiban</option>
+                                            <option value="Bhuvanesh Anna">Bhuvanesh Anna</option>
+                                        </select>
                                     </div>
                                 </div>
 
@@ -314,17 +386,12 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                     <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">
                                         Department <span className="text-red-400">*</span>
                                     </label>
-                                    <select
+                                    <SearchableDropdown
+                                        category="department"
                                         value={generalForm.department}
-                                        onChange={e => setGeneralForm(p => ({ ...p, department: e.target.value }))}
-                                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-all appearance-none cursor-pointer"
-                                    >
-                                        <option value="">Select department...</option>
-                                        <option value="Electrical">Electrical</option>
-                                        <option value="Mechanical">Mechanical</option>
-                                        <option value="Fabrication">Fabrication</option>
-                                        <option value="Store">Store</option>
-                                    </select>
+                                        onChange={val => setGeneralForm(p => ({ ...p, department: val }))}
+                                        placeholder="Select department..."
+                                    />
                                 </div>
 
                                 <div className="space-y-1.5">
@@ -354,7 +421,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                             className="w-full px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-all font-mono"
                                         />
                                     </div>
-                                    <div className="space-y-1.5">
+                                    <div className="space-y-1.5 col-span-2">
                                         <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">
                                             Unit <span className="text-red-400">*</span>
                                         </label>
@@ -363,16 +430,6 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                             value={generalForm.unit_of_measurement}
                                             onChange={val => setGeneralForm(p => ({ ...p, unit_of_measurement: val }))}
                                             placeholder="Unit..."
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">Model No.</label>
-                                        <input
-                                            type="text"
-                                            value={generalForm.model_number}
-                                            onChange={e => setGeneralForm(p => ({ ...p, model_number: e.target.value }))}
-                                            placeholder="Optional"
-                                            className="w-full px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-all font-mono uppercase"
                                         />
                                     </div>
                                 </div>
@@ -388,14 +445,27 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">Raised By</label>
-                                        <input
-                                            type="text"
+                                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">Model No.</label>
+                                        <SearchableDropdown
+                                            category="model_number"
+                                            value={generalForm.model_number}
+                                            onChange={val => setGeneralForm(p => ({ ...p, model_number: val }))}
+                                            placeholder="Search or add model..."
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">Raised By <span className="text-red-400">*</span></label>
+                                        <select
                                             value={generalForm.raised_by}
                                             onChange={e => setGeneralForm(p => ({ ...p, raised_by: e.target.value }))}
-                                            placeholder="Your name"
-                                            className="w-full px-4 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-all"
-                                        />
+                                            className="w-full px-4 py-2.5 text-sm font-semibold rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-all cursor-pointer"
+                                        >
+                                            <option value="">Select Name...</option>
+                                            <option value="Sarath">Sarath</option>
+                                            <option value="Gopi">Gopi</option>
+                                            <option value="Parthiban">Parthiban</option>
+                                            <option value="Bhuvanesh Anna">Bhuvanesh Anna</option>
+                                        </select>
                                     </div>
                                 </div>
                             </>
@@ -419,6 +489,33 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                                 <div key={s.id} className="flex items-start gap-2 text-xs text-surface-700">
                                                     <span className="flex h-5 w-5 items-center justify-center rounded bg-brand-100 text-brand-600 text-[9px] font-bold shrink-0">{idx + 1}</span>
                                                     <span className="font-medium">{s.spec_detail}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Project Designs Footer */}
+                        {selectedProjectId && (
+                            <div className="rounded-xl border border-surface-200 bg-surface-50 overflow-hidden mt-3">
+                                <div className="px-4 py-2.5 border-b border-surface-200 bg-surface-100/50 flex items-center gap-2">
+                                    <Palette size={14} className="text-violet-500" />
+                                    <span className="text-xs font-bold text-surface-600 uppercase tracking-wider">Design Inputs</span>
+                                </div>
+                                <div className="p-4">
+                                    {designsLoading ? (
+                                        <div className="text-xs text-surface-400 animate-pulse">Loading design inputs...</div>
+                                    ) : designs.length === 0 ? (
+                                        <div className="text-xs text-surface-400 italic">No design inputs defined for this project</div>
+                                    ) : (
+                                        <div className="flex flex-col gap-1.5">
+                                            {designs.map((d, idx) => (
+                                                <div key={d.id} className="flex items-center gap-2 text-xs text-surface-700">
+                                                    <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-100 text-violet-600 text-[9px] font-bold shrink-0">{idx + 1}</span>
+                                                    <span className="font-medium">{d.description || d.design_name}</span>
+                                                    {d.size && <span className="text-surface-500 font-mono ml-2 border border-surface-200 px-1.5 py-0.5 rounded uppercase">{d.size}</span>}
                                                 </div>
                                             ))}
                                         </div>
@@ -554,11 +651,10 @@ function ProductRow({ product, index, suggestions, onChange, onSuggestion, onRem
                             >
                                 <div>
                                     <p className="text-sm font-semibold text-surface-800">{s.product_name || s.manufacturer}</p>
-                                    {s.model_number && <p className="text-[10px] text-surface-500 font-mono">{s.model_number}</p>}
                                 </div>
                                 <div className="text-right">
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.stock_count > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
-                                        {s.stock_count} {s.uom}
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.quantity > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+                                        {s.quantity} {s.uom}
                                     </span>
                                 </div>
                             </button>
@@ -591,12 +687,20 @@ function ProductRow({ product, index, suggestions, onChange, onSuggestion, onRem
                 </div>
                 <div>
                     <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Make</label>
-                    <input
-                        type="text"
+                    <SearchableDropdown
+                        category="manufacturer"
                         value={product.make}
-                        onChange={e => onChange('make', e.target.value)}
-                        placeholder="Optional"
-                        className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                        onChange={val => onChange('make', val)}
+                        placeholder="Make..."
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Model No.</label>
+                    <SearchableDropdown
+                        category="model_number"
+                        value={product.model_number}
+                        onChange={val => onChange('model_number', val)}
+                        placeholder="Model..."
                     />
                 </div>
             </div>

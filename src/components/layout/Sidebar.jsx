@@ -19,13 +19,18 @@ const navSections = [
         ]
     },
     {
+        title: 'Vendor Management',
+        items: [
+            { to: '/vendors', label: 'Vendor Directory', icon: Users, financialOnly: true },
+        ]
+    },
+    {
         title: 'Projects',
         items: [
             { to: '/projects', label: 'Active Projects', sublabel: 'Manager', icon: Briefcase },
-            { to: '/vendors', label: 'Vendor Management', icon: Users, financialOnly: true, designGated: true },
             { to: '/despatch', label: 'Despatch', sublabel: 'Outbound', icon: Truck, designGated: true },
-            { to: '/purchase-intents', label: 'Purchase Intents', sublabel: 'Ledger', icon: FileText, designGated: true },
-            { to: '/project-usage', label: 'Material Usage', sublabel: 'Allocation', icon: LayoutGrid },
+            { to: '/purchase-intents', label: 'Purchase Intents', sublabel: 'Purchase Request Ledger', icon: FileText, designGated: true },
+            { to: '/project-usage', label: 'Despatch History', sublabel: 'Material Allocation Log', icon: LayoutGrid, designGated: true },
         ]
     },
     {

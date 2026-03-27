@@ -12,7 +12,7 @@ const STATUS_STYLES = {
     Requested: 'bg-amber-100 text-amber-700 ring-amber-300',
     Approved:  'bg-emerald-100 text-emerald-700 ring-emerald-300',
     Purchased: 'bg-violet-100 text-violet-700 ring-violet-300',
-    Delivered: 'bg-emerald-500 text-white ring-emerald-600 shadow-lg shadow-emerald-500/30',
+    Delivered: 'bg-green-500 text-white ring-green-600 shadow-[0_0_20px_rgba(34,197,94,0.6)] font-black border-2 border-green-400',
     Received:  'bg-emerald-500 text-white ring-emerald-600',
 }
 
@@ -20,7 +20,7 @@ const STATUS_STYLES = {
 const TIERS = [
     {
         key: 'approved_manager',
-        label: 'Manager',
+        label: 'Elec Manager',
         short: 'MGR',
         roles: ['manager', 'admin'],
         color: 'blue',
@@ -37,7 +37,7 @@ const TIERS = [
     },
     {
         key: 'approved_purchase',
-        label: 'Purchase',
+        label: 'Purchase Dept',
         short: 'PUR',
         roles: ['supervisor', 'admin'],
         color: 'violet',
@@ -86,12 +86,21 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
 
     async function fetchIntents() {
         setLoading(true)
-        let query = supabase.from('purchase_intents').select('*').order('created_at', { ascending: false })
+        let query = supabase.from('purchase_intent_headers').select('*').order('created_at', { ascending: false })
         if (selectedProjectId) {
             query = query.eq('project_id', selectedProjectId)
         }
-        const { data: intents, error } = await query
-        if (!error) setData(intents || [])
+        const { data: headers, error } = await query
+        if (!error && headers?.length > 0) {
+            const { data: items } = await supabase.from('purchase_intent_items').select('*').in('header_id', headers.map(h => h.id))
+            const enriched = headers.map(h => ({
+                ...h,
+                items: items?.filter(i => i.header_id === h.id) || []
+            }))
+            setData(enriched)
+        } else {
+            setData([])
+        }
         setLoading(false)
     }
 
@@ -103,15 +112,16 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
     const tabData = data.filter(row => {
         const matchesTab = selectedProjectId
             ? true  // Inside project workspace — show all project intents
-            : row.intent_type === activeTab
-        const matchesSearch = [row.department, row.description, row.make, row.raised_by, row.status, row.selected_vendor_name]
+            : (row.intent_type === 'General Stock' ? 'general_stock' : 'project_intent') === activeTab
+        const itemsText = row.items?.map(i => `${i.product_name} ${i.make}`).join(' ') || ''
+        const matchesSearch = [row.dept, itemsText, row.raised_by, row.status, row.selected_vendor_name]
             .some(v => v?.toLowerCase().includes(search.toLowerCase()))
         return matchesTab && matchesSearch
     })
 
     const userName = user?.user_metadata?.full_name?.toLowerCase() || user?.email?.toLowerCase() || ''
-    // Fully bypass the check to ensure testing works 
-    const isAuthorizedRaiser = true 
+    const authorizedRaisers = ['sarath', 'gopi', 'parthiban', 'bhuvanesh', 'admin', 'owner']
+    const isAuthorizedRaiser = authorizedRaisers.some(name => userName.includes(name))
 
     // ─── Sequential Approval Toggle ───
     async function handleApprovalClick(row, tier) {
@@ -146,24 +156,27 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
         }
 
         const { error } = await supabase
-            .from('purchase_intents')
+            .from('purchase_intent_headers')
             .update(updates)
             .eq('id', row.id)
 
         if (!error) {
             if (tier.key === 'approved_md' && newVal) {
-                await supabase.from('inventory').insert({
-                    product_name: row.description,
-                    manufacturer: (row.make || 'PURCHASED').toUpperCase(),
-                    model_number: (row.model_code || row.description || 'ITEM').toUpperCase(),
+                const inventoryInserts = (row.items || []).map(item => ({
+                    product_name: item.product_name,
+                    manufacturer: (item.make || 'PURCHASED').toUpperCase(),
+                    model_number: item.model_number || '-',
                     serial_number: null,
-                    stock_count: Number(row.quantity_required) || 1,
-                    uom: row.unit_of_measurement || 'NOS',
-                })
+                    quantity: Number(item.quantity) || 1,
+                    uom: item.uom || 'NOS',
+                }))
+                if (inventoryInserts.length > 0) {
+                    await supabase.from('inventory').insert(inventoryInserts)
+                }
                 await supabase.from('activity_logs').insert({
                     user_name: user?.user_metadata?.full_name || user?.email || 'User',
                     user_role: role,
-                    action: `Marked purchase intent as Delivered & added to inventory: ${row.description} × ${row.quantity_required}`,
+                    action: `Marked purchase intent as Delivered & added ${inventoryInserts.length} items to inventory`,
                     entity_type: 'inventory',
                 })
             }
@@ -178,7 +191,7 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
         setTogglingId(`${row.id}-approved_purchase`)
 
         const { error } = await supabase
-            .from('purchase_intents')
+            .from('purchase_intent_headers')
             .update({
                 selected_vendor_id: vendor.id,
                 selected_vendor_name: vendor.name,
@@ -204,7 +217,7 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
             return
         }
         setDeletingIntentId(row.id)
-        const { error } = await supabase.from('purchase_intents').delete().eq('id', row.id)
+        const { error } = await supabase.from('purchase_intent_headers').delete().eq('id', row.id)
         if (!error) setData(prev => prev.filter(r => r.id !== row.id))
         setDeletingIntentId(null)
     }
@@ -283,10 +296,7 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
                             <tr className="border-b border-surface-200">
                                 <th className="px-4 py-3 font-semibold text-xs uppercase text-surface-500">Type</th>
                                 <th className="px-4 py-3 font-semibold text-xs uppercase text-surface-500">Dept</th>
-                                <th className="px-4 py-3 font-semibold text-xs uppercase text-surface-500">Product</th>
-                                <th className="px-4 py-3 font-semibold text-xs uppercase text-surface-500">Make</th>
-                                <th className="px-4 py-3 font-semibold text-xs uppercase text-surface-500 text-center">Qty</th>
-                                <th className="px-4 py-3 font-semibold text-xs uppercase text-surface-500">UOM</th>
+                                <th className="px-4 py-3 font-semibold text-xs uppercase text-surface-500 min-w-[200px]">Items Overview</th>
                                 <th className="px-4 py-3 font-semibold text-xs uppercase text-surface-500">Raised By</th>
                                 <th className="px-4 py-3 font-semibold text-xs uppercase text-surface-500 text-center">Status</th>
 
@@ -312,7 +322,7 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
                                     <tr key={row.id} className="hover:bg-brand-50/20 relative">
                                         {/* Type badge */}
                                         <td className="px-4 py-4">
-                                            {row.intent_type === 'general_stock'
+                                            {row.intent_type === 'General Stock'
                                                 ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700"><Warehouse size={9} />Stock</span>
                                                 : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-100 text-brand-700"><Briefcase size={9} />Project</span>
                                             }
@@ -320,17 +330,28 @@ export default function PurchaseIntentsPage({ selectedProjectId }) {
                                         {/* Department */}
                                         <td className="px-4 py-4">
                                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                                row.department === 'Electrical' ? 'bg-amber-100 text-amber-700' :
-                                                row.department === 'Mechanical' ? 'bg-blue-100 text-blue-700' :
-                                                row.department === 'Fabrication' ? 'bg-violet-100 text-violet-700' :
+                                                row.dept === 'Electrical' ? 'bg-amber-100 text-amber-700' :
+                                                row.dept === 'Mechanical' ? 'bg-blue-100 text-blue-700' :
+                                                row.dept === 'Fabrication' ? 'bg-violet-100 text-violet-700' :
                                                 'bg-surface-100 text-surface-600'
-                                            }`}>{row.department || '—'}</span>
+                                            }`}>{row.dept || '—'}</span>
                                         </td>
-                                        <td className="px-4 py-4 font-medium max-w-[180px] truncate">{row.description || '—'}</td>
-                                        <td className="px-4 py-4 text-xs text-surface-600">{row.make || '—'}</td>
-                                        <td className="px-4 py-4 text-center font-mono">{row.quantity_required || '—'}</td>
-                                        <td className="px-4 py-4 text-xs">{row.unit_of_measurement || row.unit || '—'}</td>
-                                        <td className="px-4 py-4 text-xs text-surface-600">{row.raised_by || '—'}</td>
+                                        {/* Items Overview */}
+                                        <td className="px-4 py-4 max-w-[280px]">
+                                            <div className="space-y-1">
+                                                {row.items?.map((item, idx) => (
+                                                    <div key={item.id} className="text-[11px] leading-tight flex gap-1.5 items-start">
+                                                        <span className="text-surface-400 font-mono mt-0.5">{idx + 1}.</span>
+                                                        <div className="flex-1">
+                                                            <span className="font-semibold text-surface-800">{item.product_name}</span>
+                                                            <span className="text-surface-500 ml-1">({item.quantity} {item.uom})</span>
+                                                            {item.make && <span className="text-surface-400 ml-1 block text-[10px]">[{item.make}]</span>}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-4 text-xs text-surface-600 font-medium">{row.raised_by || '—'}</td>
                                         <td className="px-4 py-4 text-center">
                                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ring-1 ${STATUS_STYLES[row.status] || 'bg-surface-100 text-surface-600'}`}>
                                                 {row.status}

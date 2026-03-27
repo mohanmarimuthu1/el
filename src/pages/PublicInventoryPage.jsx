@@ -23,7 +23,7 @@ export default function PublicInventoryPage() {
         // Privacy: select ONLY safe columns — no serial_number, no price, no vendor data
         const { data, error: fetchErr } = await supabase
             .from('inventory')
-            .select('id, manufacturer, model_number, stock_count, description')
+            .select('id, manufacturer, model_number, quantity, description')
             .eq('id', itemId)
             .single()
 
@@ -40,7 +40,7 @@ export default function PublicInventoryPage() {
         // Privacy: select ONLY safe columns
         const { data, error: fetchErr } = await supabase
             .from('inventory')
-            .select('id, manufacturer, model_number, stock_count, description')
+            .select('id, manufacturer, model_number, quantity, description')
             .order('manufacturer', { ascending: true })
 
         if (fetchErr) {
@@ -102,11 +102,11 @@ export default function PublicInventoryPage() {
                                 <DetailRow label="Manufacturer" value={item.manufacturer} />
                                 <DetailRow label="Model Number" value={item.model_number} />
                                 <DetailRow label="Stock Available" value={
-                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${item.stock_count > 0
+                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${item.quantity > 0
                                             ? 'bg-emerald-100 text-emerald-700'
                                             : 'bg-red-100 text-red-700'
                                         }`}>
-                                        {item.stock_count} units
+                                        {item.quantity} units
                                     </span>
                                 } />
                                 <DetailRow label="Description" value={item.description || '—'} />
@@ -194,11 +194,11 @@ export default function PublicInventoryPage() {
                                                 </Link>
                                             </td>
                                             <td className="px-5 py-3.5 text-center">
-                                                <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold ${row.stock_count > 0
+                                                <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold ${row.quantity > 0
                                                         ? 'bg-emerald-100 text-emerald-700'
                                                         : 'bg-red-100 text-red-700'
                                                     }`}>
-                                                    {row.stock_count}
+                                                    {row.quantity}
                                                 </span>
                                             </td>
                                             <td className="px-5 py-3.5 text-surface-700 max-w-[250px] truncate">{row.description || '—'}</td>

@@ -21,7 +21,7 @@ export default function InventoryPage() {
 
     // Inline editing state
     const [editingId, setEditingId] = useState(null)
-    const [editForm, setEditForm] = useState({ stock_count: '', uom: 'NOS', description: '', reason: '' })
+    const [editForm, setEditForm] = useState({ quantity: '', uom: 'NOS', description: '', reason: '' })
     const [saving, setSaving] = useState(false)
     const [deletingId, setDeletingId] = useState(null)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -63,7 +63,7 @@ export default function InventoryPage() {
     function startEdit(row) {
         setEditingId(row.id)
         setEditForm({
-            stock_count: String(row.stock_count ?? 0),
+            quantity: String(row.quantity ?? 0),
             uom: row.uom || 'NOS',
             description: row.description || '',
             reason: '',
@@ -72,14 +72,14 @@ export default function InventoryPage() {
 
     function cancelEdit() {
         setEditingId(null)
-        setEditForm({ stock_count: '', uom: 'NOS', description: '', reason: '' })
+        setEditForm({ quantity: '', uom: 'NOS', description: '', reason: '' })
     }
 
     async function saveEdit(row) {
-        const newStock = parseInt(editForm.stock_count) || 0
+        const newStock = parseInt(editForm.quantity) || 0
         const newUom = editForm.uom || 'NOS'
         const newDesc = editForm.description.trim()
-        const stockChanged = newStock !== row.stock_count
+        const stockChanged = newStock !== row.quantity
         const uomChanged = newUom !== (row.uom || 'NOS')
 
         // If stock changed, reason is required
@@ -88,7 +88,7 @@ export default function InventoryPage() {
         }
 
         const changes = []
-        if (stockChanged) changes.push(`Stock: ${row.stock_count} → ${newStock}`)
+        if (stockChanged) changes.push(`Stock: ${row.quantity} → ${newStock}`)
         if (uomChanged) changes.push(`UOM: ${row.uom || 'NOS'} → ${newUom}`)
         if (newDesc !== (row.description || '')) changes.push(`Description updated`)
 
@@ -102,7 +102,7 @@ export default function InventoryPage() {
         const { error } = await supabase
             .from('inventory')
             .update({
-                stock_count: newStock,
+                quantity: newStock,
                 uom: newUom,
                 description: newDesc || null,
                 updated_at: new Date().toISOString(),
@@ -114,7 +114,7 @@ export default function InventoryPage() {
             if (stockChanged) {
                 await supabase.from('stock_adjustments').insert({
                     inventory_id: row.id,
-                    previous_stock: row.stock_count,
+                    previous_stock: row.quantity,
                     new_stock: newStock,
                     reason: editForm.reason.trim(),
                     changed_by: user?.name || 'Demo User',
@@ -134,7 +134,7 @@ export default function InventoryPage() {
             // Optimistic update
             setData(prev => prev.map(r =>
                 r.id === row.id
-                    ? { ...r, stock_count: newStock, uom: newUom, description: newDesc || null, updated_at: new Date().toISOString() }
+                    ? { ...r, quantity: newStock, uom: newUom, description: newDesc || null, updated_at: new Date().toISOString() }
                     : r
             ))
         }
@@ -190,7 +190,7 @@ export default function InventoryPage() {
         setHistoryLoading(false)
     }
 
-    const colCount = canManageInventory ? 8 : 7
+    const colCount = canManageInventory ? 10 : 9
 
     return (
         <div className="space-y-6">
@@ -255,16 +255,17 @@ export default function InventoryPage() {
                     <table className="w-full text-sm relative">
                         <thead className="bg-surface-50/80 sticky top-0 z-20 shadow-sm ring-1 ring-surface-200">
                             <tr className="border-b border-surface-200">
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Product</th>
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Manufacturer</th>
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Serial No.</th>
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Model No.</th>
-                                <th className="text-center px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Stock</th>
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider w-24">UOM</th>
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Description</th>
-                                <th className="text-left px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Last Updated</th>
+                                <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Name</th>
+                                <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Manufacturer</th>
+                                <th className="text-left px-4 py-3.5 font-semibold text-xs uppercase tracking-wider">Model No.</th>
+                                <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Serial No.</th>
+                                <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Quantity</th>
+                                <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider w-20">UOM</th>
+                                <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Description</th>
+                                <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Maintain</th>
+                                <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Min Qty</th>
                                 {canManageInventory && (
-                                    <th className="text-center px-5 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider w-20">Edit</th>
+                                    <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider w-16">Edit</th>
                                 )}
                             </tr>
                         </thead>
@@ -294,7 +295,7 @@ export default function InventoryPage() {
                             ) : (
                                 filtered.map((row) => {
                                     const isEditing = editingId === row.id
-                                    const stockChanged = isEditing && parseInt(editForm.stock_count) !== row.stock_count
+                                    const stockChanged = isEditing && parseInt(editForm.quantity) !== row.quantity
                                     const reasonMissing = stockChanged && !editForm.reason.trim()
 
                                     return (
@@ -306,13 +307,13 @@ export default function InventoryPage() {
                                                 }`}
                                         >
                                             <td className="px-5 py-3.5">
-                                                <div>
-                                                    <p className="font-semibold text-surface-800 text-sm">{row.product_name || row.manufacturer}</p>
-                                                    {row.product_name && <p className="text-[10px] text-surface-400 uppercase tracking-wide">{row.manufacturer}</p>}
-                                                </div>
+                                                <p className="font-semibold text-surface-800 text-sm whitespace-nowrap">{row.product_name || '—'}</p>
                                             </td>
+                                            <td className="px-5 py-3.5">
+                                                <p className="text-[11px] text-surface-600 font-medium uppercase tracking-wide whitespace-nowrap">{row.manufacturer || '—'}</p>
+                                            </td>
+                                            <td className="px-5 py-3.5 text-surface-700 font-mono text-xs">{row.model_number || '—'}</td>
                                             <td className="px-5 py-3.5 font-mono text-xs text-surface-700">{row.serial_number || '—'}</td>
-                                            <td className="px-5 py-3.5 text-surface-700 font-mono">{row.model_number || '—'}</td>
 
                                             {/* Stock — editable + history icon + low-stock badge */}
                                             <td className="px-5 py-3.5 text-center">
@@ -322,23 +323,23 @@ export default function InventoryPage() {
                                                             <input
                                                                 type="number"
                                                                 min="0"
-                                                                value={editForm.stock_count}
-                                                                onChange={e => setEditForm(prev => ({ ...prev, stock_count: e.target.value }))}
+                                                                value={editForm.quantity}
+                                                                onChange={e => setEditForm(prev => ({ ...prev, quantity: e.target.value }))}
                                                                 className="w-16 px-2 py-1 text-sm text-center rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all"
                                                                 autoFocus
                                                             />
                                                         ) : (
                                                             <>
                                                                 <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold ${
-                                                                    row.maintain_stock && row.stock_count < row.min_stock_level
+                                                                    row.maintain_stock && row.quantity < row.min_stock_level
                                                                         ? 'bg-red-100 text-red-700 ring-1 ring-red-300'
-                                                                        : row.stock_count > 0
+                                                                        : row.quantity > 0
                                                                             ? 'bg-emerald-100 text-emerald-700'
                                                                             : 'bg-red-100 text-red-700'
                                                                 }`}>
-                                                                    {row.stock_count}
+                                                                    {row.quantity}
                                                                 </span>
-                                                                {row.maintain_stock && row.stock_count < row.min_stock_level && (
+                                                                {row.maintain_stock && row.quantity < row.min_stock_level && (
                                                                     <span title={`Min stock: ${row.min_stock_level}`}>
                                                                         <AlertTriangle size={12} className="text-amber-500" />
                                                                     </span>
@@ -444,7 +445,15 @@ export default function InventoryPage() {
                                                 )}
                                             </td>
 
-                                            <td className="px-5 py-3.5 text-xs text-surface-700/50 font-mono whitespace-nowrap">{formatTimestamp(row.updated_at)}</td>
+                                            {/* Maintain Stock toggle read-only */}
+                                            <td className="px-5 py-3.5 text-center">
+                                                {row.maintain_stock ? <Check size={16} className="text-brand-500 mx-auto" /> : <X size={16} className="text-surface-300 mx-auto" />}
+                                            </td>
+
+                                            {/* Min Qty */}
+                                            <td className="px-5 py-3.5 text-center text-xs font-mono text-surface-600">
+                                                {row.maintain_stock ? row.min_stock_level : '—'}
+                                            </td>
 
                                             {/* Edit Actions */}
                                             {canManageInventory && (

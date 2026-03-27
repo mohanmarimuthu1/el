@@ -4,10 +4,10 @@ import { useAuth } from '@/hooks/useAuth'
 import { formatTimestamp } from '@/lib/formatTime'
 import { Truck, Plus, Loader2, AlertTriangle, CheckCircle2, Package, X, Trash2, ArrowRight, Clock, UserCheck } from 'lucide-react'
 
-export default function DispatchPage({ selectedProjectId }) {
+export default function DespatchPage({ selectedProjectId }) {
     const { canManageInventory, user, role } = useAuth()
     const [inventory, setInventory] = useState([])
-    const [dispatches, setDispatches] = useState([])
+    const [despatches, setDespatches] = useState([])
     const [loading, setLoading] = useState(true)
     const [formOpen, setFormOpen] = useState(false)
     const [submitting, setSubmitting] = useState(false)
@@ -40,7 +40,7 @@ export default function DispatchPage({ selectedProjectId }) {
 
     async function fetchData() {
         setLoading(true)
-        let dispQuery = supabase.from('dispatches').select('*').order('created_at', { ascending: false }).limit(50)
+        let dispQuery = supabase.from('despatches').select('*').order('created_at', { ascending: false }).limit(50)
         
         if (selectedProjectId) {
             dispQuery = dispQuery.eq('project_id', selectedProjectId)
@@ -51,7 +51,7 @@ export default function DispatchPage({ selectedProjectId }) {
             dispQuery,
         ])
         if (invRes.data) setInventory(invRes.data)
-        if (dispRes.data) setDispatches(dispRes.data)
+        if (dispRes.data) setDespatches(dispRes.data)
         setLoading(false)
     }
 
@@ -70,7 +70,7 @@ export default function DispatchPage({ selectedProjectId }) {
         setSelectedMaterials(updated)
     }
 
-    async function handleDispatch(e) {
+    async function handleDespatch(e) {
         e.preventDefault()
         setError('')
         setSuccess('')
@@ -86,7 +86,7 @@ export default function DispatchPage({ selectedProjectId }) {
             if (qty <= 0) { setError(`Quantity for row ${idx + 1} must be at least 1.`); return }
 
             const item = inventory.find(i => i.id === m.inventory_id)
-            const availableStock = item.stock_count ?? 0
+            const availableStock = item.quantity ?? 0
             if (qty > availableStock) {
                 setError(`Insufficient stock for ${item.model_number || item.item_name}! Available: ${availableStock}`);
                 return
@@ -100,14 +100,14 @@ export default function DispatchPage({ selectedProjectId }) {
                 const qty = parseInt(m.quantity)
                 const selectedItem = inventory.find(i => i.id === m.inventory_id)
 
-                // 1. Insert dispatch record
-                const { error: insertErr } = await supabase.from('dispatches').insert({
+                // 1. Insert despatch record
+                const { error: insertErr } = await supabase.from('despatches').insert({
                     project_name: effectiveProjectName,
                     inventory_id: m.inventory_id,
-                    item_name: selectedItem.model_number || selectedItem.item_name,
+                    item_name: selectedItem.product_name || selectedItem.model_number,
                     manufacturer: selectedItem.manufacturer,
-                    quantity_dispatched: qty,
-                    dispatched_by: user?.name || user?.email || 'Demo User',
+                    quantity_despatched: qty,
+                    despatched_by: user?.user_metadata?.full_name || user?.email || 'User',
                     received_by: receivedBy.trim(),
                     project_id: selectedProjectId || null,
                 })
@@ -116,12 +116,12 @@ export default function DispatchPage({ selectedProjectId }) {
                 // 2. Fetch fresh stock from DB to avoid using stale local state
                 const { data: freshItem, error: fetchErr } = await supabase
                     .from('inventory')
-                    .select('stock_count')
+                    .select('quantity')
                     .eq('id', m.inventory_id)
                     .single()
                 if (fetchErr) throw fetchErr
 
-                const currentStock = freshItem.stock_count ?? 0
+                const currentStock = freshItem.quantity ?? 0
                 if (qty > currentStock) {
                     throw new Error(`Insufficient stock for ${selectedItem.model_number || selectedItem.item_name}. Available: ${currentStock}, Requested: ${qty}`)
                 }
@@ -129,18 +129,17 @@ export default function DispatchPage({ selectedProjectId }) {
                 const newStock = currentStock - qty
                 const { error: updateErr } = await supabase
                     .from('inventory')
-                    .update({ stock_count: newStock, updated_at: new Date().toISOString() })
+                    .update({ quantity: newStock, updated_at: new Date().toISOString() })
                     .eq('id', m.inventory_id)
                 if (updateErr) throw updateErr
 
                 // 3. Audit log
                 await supabase.from('activity_logs').insert({
-                    user_name: user?.name || user?.email || 'Demo User',
+                    user_name: user?.user_metadata?.full_name || user?.email || 'User',
                     user_role: role,
-                    action: `Despatched ${qty} × ${selectedItem.model_number || selectedItem.item_name} to "${effectiveProjectName}" (Received by: ${receivedBy.trim()})`,
-                    entity_type: 'dispatch',
-                    entity_id: m.inventory_id,
-                    project_id: selectedProjectId || null
+                    action: `Despatched ${qty} × ${selectedItem.product_name || selectedItem.model_number} to "${effectiveProjectName}" (Received by: ${receivedBy.trim()})`,
+                    entity_type: 'despatch',
+                    entity_id: m.inventory_id
                 })
 
                 // 4. Log stock adjustment
@@ -167,8 +166,8 @@ export default function DispatchPage({ selectedProjectId }) {
         }
     }
 
-    async function handleReturn(dispatchItem) {
-        if (!confirm(`Return ${dispatchItem.quantity_dispatched} units of ${dispatchItem.item_name} to inventory?`)) return
+    async function handleReturn(despatchItem) {
+        if (!confirm(`Return ${despatchItem.quantity_despatched} units of ${despatchItem.item_name} to inventory?`)) return
         
         setError('')
         setSuccess('')
@@ -178,40 +177,39 @@ export default function DispatchPage({ selectedProjectId }) {
             // 1. Fetch current inventory stock fresh from DB
             const { data: item, error: fetchErr } = await supabase
                 .from('inventory')
-                .select('stock_count')
-                .eq('id', dispatchItem.inventory_id)
+                .select('quantity')
+                .eq('id', despatchItem.inventory_id)
                 .single()
             
             if (fetchErr) throw fetchErr
 
-            const currentStock = item.stock_count ?? 0
-            const returnQty = dispatchItem.quantity_dispatched
+            const currentStock = item.quantity ?? 0
+            const returnQty = despatchItem.quantity_despatched
             const newStock = currentStock + returnQty
 
             // 2. Update inventory stock
             const { error: updateErr } = await supabase
                 .from('inventory')
-                .update({ stock_count: newStock, updated_at: new Date().toISOString() })
-                .eq('id', dispatchItem.inventory_id)
+                .update({ quantity: newStock, updated_at: new Date().toISOString() })
+                .eq('id', despatchItem.inventory_id)
             if (updateErr) throw updateErr
 
-            // 3. Update dispatch record (mark as returned by setting qty to 0 or deleting)
-            // Strategy: Set quantity_dispatched to 0 and update a 'returned' flag if we had one, 
+            // 3. Update despatch record (mark as returned by setting qty to 0 or deleting)
+            // Strategy: Set quantity_despatched to 0 and update a 'returned' flag if we had one, 
             // but for now we'll just set it to 0 and log it.
             const { error: dispUpdateErr } = await supabase
-                .from('dispatches')
-                .update({ quantity_dispatched: 0, returned_at: new Date().toISOString() })
-                .eq('id', dispatchItem.id)
+                .from('despatches')
+                .update({ quantity_despatched: 0, returned_at: new Date().toISOString() })
+                .eq('id', despatchItem.id)
             if (dispUpdateErr) throw dispUpdateErr
 
             // 4. Audit log
             await supabase.from('activity_logs').insert({
-                user_name: user?.name || user?.email || 'Demo User',
+                user_name: user?.user_metadata?.full_name || user?.email || 'User',
                 user_role: role,
-                action: `Material Return: ${returnQty} × ${dispatchItem.item_name} returned from "${dispatchItem.project_name}"`,
+                action: `Material Return: ${returnQty} × ${despatchItem.item_name} returned from "${despatchItem.project_name}"`,
                 entity_type: 'inventory',
-                entity_id: dispatchItem.inventory_id,
-                project_id: dispatchItem.project_id
+                entity_id: despatchItem.inventory_id
             })
 
             setSuccess('✅ Material returned to inventory successfully!')
@@ -229,7 +227,7 @@ export default function DispatchPage({ selectedProjectId }) {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-3xl font-extrabold text-surface-900 tracking-tighter">Material Despatch</h2>
+                    <h2 className="text-3xl font-extrabold text-surface-900 tracking-tighter uppercase">Project Despatch Hub</h2>
                     <p className="text-sm text-surface-400 font-medium mt-2">
                         Execute and track project material allocations.
                     </p>
@@ -272,7 +270,7 @@ export default function DispatchPage({ selectedProjectId }) {
             {/* Form */}
             {formOpen && (
                 <div className="bg-white rounded-[2.5rem] border border-surface-200/50 p-8 md:p-10 shadow-2xl shadow-surface-900/5 animate-in slide-in-from-top-4 duration-500">
-                    <form onSubmit={handleDispatch} className="space-y-10">
+                    <form onSubmit={handleDespatch} className="space-y-10">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Project Name — hidden when a project is already selected */}
                             {!selectedProjectId ? (
@@ -339,7 +337,7 @@ export default function DispatchPage({ selectedProjectId }) {
                                                     <option value="">Select Material...</option>
                                                     {inventory.map((i) => (
                                                         <option key={i.id} value={i.id}>
-                                                            {i.item_name || i.model_number} — Stock: {i.current_stock ?? i.stock_count}
+                                                            {i.item_name || i.model_number} — Stock: {i.current_stock ?? i.quantity}
                                                         </option>
                                                     ))}
                                                 </select>
@@ -420,8 +418,8 @@ export default function DispatchPage({ selectedProjectId }) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-surface-100 font-medium">
-                            {dispatches.map((d) => (
-                                <tr key={d.id} className={`group hover:bg-surface-50/50 transition-all duration-300 ${d.quantity_dispatched === 0 ? 'opacity-50 grayscale bg-surface-50/20' : ''}`}>
+                            {despatches.map((d) => (
+                                <tr key={d.id} className={`group hover:bg-surface-50/50 transition-all duration-300 ${d.quantity_despatched === 0 ? 'opacity-50 grayscale bg-surface-50/20' : ''}`}>
                                     <td className="px-8 py-6">
                                         <div className="text-sm font-bold text-surface-900 group-hover:text-brand-600 transition-colors">
                                             {d.item_name}
@@ -435,7 +433,7 @@ export default function DispatchPage({ selectedProjectId }) {
                                     </td>
                                     <td className="px-8 py-6">
                                         <div className="text-sm font-black text-surface-900">
-                                            {d.quantity_dispatched === 0 ? 'Returned' : d.quantity_dispatched}
+                                            {d.quantity_despatched === 0 ? 'Returned' : d.quantity_despatched}
                                         </div>
                                     </td>
                                     <td className="px-8 py-6">
@@ -452,7 +450,7 @@ export default function DispatchPage({ selectedProjectId }) {
                                         {formatTimestamp(d.created_at)}
                                     </td>
                                     <td className="px-8 py-6 text-center">
-                                        {canManageInventory && d.quantity_dispatched > 0 && (
+                                        {canManageInventory && d.quantity_despatched > 0 && (
                                             <button
                                                 onClick={() => handleReturn(d)}
                                                 className="px-3 py-1.5 rounded-xl bg-surface-100 text-[10px] font-black uppercase text-surface-600 hover:bg-brand-50 hover:text-brand-600 transition-all active:scale-95"

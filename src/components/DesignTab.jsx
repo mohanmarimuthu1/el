@@ -12,6 +12,7 @@ export default function DesignTab({ projectId, onDesignUploaded }) {
     // Inline add row
     const [addMode, setAddMode] = useState(false)
     const [newDesc, setNewDesc] = useState('')
+    const [newSNo, setNewSNo] = useState('')
     const [newSize, setNewSize] = useState('')
     const [adding, setAdding] = useState(false)
 
@@ -37,7 +38,7 @@ export default function DesignTab({ projectId, onDesignUploaded }) {
             .select('*')
             .eq('project_id', projectId)
             .is('file_url', null)
-            .order('created_at', { ascending: true })
+            .order('s_no', { ascending: true })
         if (!error) setDesigns(data || [])
         setLoading(false)
     }
@@ -61,6 +62,7 @@ export default function DesignTab({ projectId, onDesignUploaded }) {
             .from('project_designs')
             .insert({
                 project_id: projectId,
+                s_no: parseInt(newSNo) || (designs.length + 1),
                 design_name: `Item ${designs.length + 1}`,
                 description: newDesc.trim(),
                 size: newSize.trim() || null,
@@ -78,6 +80,7 @@ export default function DesignTab({ projectId, onDesignUploaded }) {
                 onDesignUploaded?.()
             }
             setNewDesc('')
+            setNewSNo('')
             setNewSize('')
             setAddMode(false)
             fetchDesigns()
@@ -208,7 +211,7 @@ export default function DesignTab({ projectId, onDesignUploaded }) {
                             <tr className="border-b border-surface-200">
                                 <th className="px-8 py-3 font-semibold text-xs uppercase text-surface-500 w-20 text-center">S.No</th>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500">Description</th>
-                                <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500 w-40">Size</th>
+                                <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500 w-40">Size in MM</th>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase text-surface-500 w-16 text-center">Action</th>
                             </tr>
                         </thead>
@@ -216,8 +219,14 @@ export default function DesignTab({ projectId, onDesignUploaded }) {
                             {/* Add Row */}
                             {addMode && (
                                 <tr className="bg-violet-50/30">
-                                    <td className="px-8 py-3 text-center text-xs font-bold text-violet-500">
-                                        {designs.length + 1}
+                                    <td className="px-8 py-3 text-center">
+                                        <input
+                                            type="number"
+                                            value={newSNo}
+                                            onChange={(e) => setNewSNo(e.target.value)}
+                                            placeholder={designs.length + 1}
+                                            className="w-16 px-2 py-2 text-sm text-center font-bold rounded-lg border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400"
+                                        />
                                     </td>
                                     <td className="px-5 py-3">
                                         <input
@@ -236,7 +245,7 @@ export default function DesignTab({ projectId, onDesignUploaded }) {
                                             value={newSize}
                                             onChange={(e) => setNewSize(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && addDesignRow()}
-                                            placeholder="e.g. 100x200mm"
+                                            placeholder="e.g. 100x200"
                                             className="w-full px-3 py-2 text-sm rounded-lg border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400"
                                         />
                                     </td>
@@ -272,7 +281,7 @@ export default function DesignTab({ projectId, onDesignUploaded }) {
                                     <tr key={d.id} className="hover:bg-surface-50/50 transition-colors group">
                                         <td className="px-8 py-3.5 text-center">
                                             <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-violet-600 text-xs font-bold">
-                                                {idx + 1}
+                                                {d.s_no || (idx + 1)}
                                             </span>
                                         </td>
                                         <td className="px-5 py-3.5 font-medium text-surface-900">{d.description || d.design_name}</td>

@@ -11,7 +11,7 @@ const emptyForm = {
     manufacturer: '',
     model_number: '',
     serial_number: '',
-    stock_count: '0',
+    quantity: '0',
     uom: 'NOS',
     description: '',
     maintain_stock: false,
@@ -48,9 +48,9 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
         const { error: insertError } = await supabase.from('inventory').insert({
             product_name: form.product_name.trim(),
             manufacturer: form.manufacturer.trim().toUpperCase(),
-            model_number: form.model_number.trim().toUpperCase() || null,
+            model_number: form.model_number.trim() || '-',
             serial_number: form.serial_number.trim() || null,
-            stock_count: parseInt(form.stock_count) || 0,
+            quantity: parseInt(form.quantity) || 0,
             uom: form.uom || 'NOS',
             description: form.description.trim() || null,
             maintain_stock: form.maintain_stock,
@@ -66,7 +66,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
         await supabase.from('activity_logs').insert({
             user_name: user?.user_metadata?.full_name || user?.email || 'User',
             user_role: role,
-            action: `Added new inventory item: ${form.product_name.trim()} (${form.manufacturer.trim().toUpperCase()})`,
+            action: `Added new inventory item: ${form.product_name.trim()} (${form.manufacturer.trim().toUpperCase()})${form.model_number ? ` - ${form.model_number}` : ''}`,
             entity_type: 'inventory',
         })
 
@@ -117,7 +117,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                         />
                     </div>
 
-                    {/* Manufacturer + Model No */}
+                    {/* Manufacturer + Model Number */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
@@ -132,18 +132,18 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
-                                Model No.
+                                Model Number
                             </label>
                             <SearchableDropdown
                                 category="model_number"
                                 value={form.model_number}
                                 onChange={val => handle('model_number', val)}
-                                placeholder="Select or type..."
+                                placeholder="e.g. GV2-ME20"
                             />
                         </div>
                     </div>
 
-                    {/* Serial No + UOM */}
+                    {/* Serial No + Initial Qty */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Serial No.</label>
@@ -155,37 +155,37 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">UOM</label>
-                            <SearchableDropdown
-                                category="uom"
-                                value={form.uom}
-                                onChange={val => handle('uom', val)}
-                                placeholder="Select UOM"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Qty + Description */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
                             <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Initial Qty</label>
                             <input
                                 type="number"
                                 min="0"
-                                value={form.stock_count}
-                                onChange={e => handle('stock_count', e.target.value)}
+                                value={form.quantity}
+                                onChange={e => handle('quantity', e.target.value)}
                                 className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
                             />
                         </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Description</label>
-                            <input
-                                value={form.description}
-                                onChange={e => handle('description', e.target.value)}
-                                placeholder="Brief notes..."
-                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                            />
-                        </div>
+                    </div>
+
+                    {/* UOM */}
+                    <div className="w-1/2 pr-2">
+                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">UOM</label>
+                        <SearchableDropdown
+                            category="uom"
+                            value={form.uom}
+                            onChange={val => handle('uom', val)}
+                            placeholder="Select UOM"
+                        />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Description</label>
+                        <input
+                            value={form.description}
+                            onChange={e => handle('description', e.target.value)}
+                            placeholder="Brief notes..."
+                            className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                        />
                     </div>
 
                     {/* Maintain Stock Toggle */}
