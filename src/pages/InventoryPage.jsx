@@ -206,7 +206,18 @@ export default function InventoryPage() {
 
         const { error } = await supabase.from('inventory').delete().eq('id', row.id)
         if (error) {
+<<<<<<< HEAD
             alert(`Delete failed: ${error.message}`)
+=======
+            console.error('Delete failed:', error)
+            
+            if (error.code === '23503' || error.message?.includes('dispatches_inventory_id_fkey')) {
+                alert(`Cannot delete "${row.product_name || row.model_number || 'item'}": This item is linked to existing dispatch records. You must completely delete its dispatch history first.`)
+            } else {
+                alert(`Failed to delete item: ${error.message || 'Unknown error'}`)
+            }
+            
+>>>>>>> 9cca64481af236e850f434b7b712c891a0b40137
             setDeletingId(null)
             return
         }
