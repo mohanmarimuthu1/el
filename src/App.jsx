@@ -14,6 +14,7 @@ import DespatchPage from '@/pages/DespatchPage'
 import PurchaseEntriesPage from '@/pages/PurchaseEntriesPage'
 import ProjectInventoryPage from '@/pages/ProjectInventoryPage'
 import AdminUserManagementPage from '@/pages/AdminUserManagementPage'
+import RoleManagementPage from '@/pages/RoleManagementPage'
 import ProjectsPage from '@/pages/ProjectsPage'
 import ProjectWorkspacePage from '@/pages/ProjectWorkspacePage'
 import CompanyPaymentsPage from '@/pages/CompanyPaymentsPage'
@@ -103,6 +104,7 @@ export default function App() {
             <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
             <Route path="project-usage" element={<ProjectInventoryPage selectedProjectId={selectedProjectId} />} />
             <Route path="user-management" element={<AdminUserManagementPage />} />
+            <Route path="role-management" element={<RoleManagementPage />} />
           </Route>
 
           <Route

@@ -11,6 +11,7 @@ import CreateIntentModal from '@/components/CreateIntentModal'
 import PurchaseIntentsPage from '@/pages/PurchaseIntentsPage'
 import DespatchPage from '@/pages/DespatchPage'
 import VendorQuoteSection from '@/components/VendorQuoteSection'
+import VendorManagementPage from '@/pages/VendorManagementPage'
 
 const TAB_CONFIG = [
     { id: 'info',    label: 'Info',           icon: Briefcase,   gated: false },
@@ -443,7 +444,12 @@ export default function ProjectWorkspacePage() {
 
                 {/* ─── VENDORS TAB ─── */}
                 {activeTab === 'vendors' && designApproved && (
-                    <div className="space-y-6">
+                    <div className="space-y-8">
+                        {/* Full Vendor Directory */}
+                        <div className="bg-white rounded-3xl border border-surface-200 p-6 shadow-sm">
+                            <VendorManagementPage />
+                        </div>
+                        {/* Quote Entry for this Project */}
                         <VendorQuoteSection selectedProjectId={projectId} />
                     </div>
                 )}

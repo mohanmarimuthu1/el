@@ -251,7 +251,7 @@ export default function VendorManagementPage() {
                                                 {v.contact_person && <p className="text-xs text-surface-500">{v.contact_person}</p>}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                        <div className="flex items-center gap-1 shrink-0">
                                             <button
                                                 onClick={() => startEdit(v)}
                                                 className="p-1.5 rounded-lg hover:bg-brand-50 text-surface-400 hover:text-brand-600 transition-colors"

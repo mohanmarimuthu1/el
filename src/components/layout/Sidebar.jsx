@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase, Building2, Lock } from 'lucide-react'
+import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase, Building2, Lock, FolderKey } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabaseClient'
 import { useState, useEffect } from 'react'
@@ -21,7 +21,7 @@ const navSections = [
     {
         title: 'Vendor Management',
         items: [
-            { to: '/vendors', label: 'Vendor Directory', icon: Users, financialOnly: true },
+            { to: '/vendors', label: 'Vendor Directory', sublabel: 'All Registered Vendors', icon: Users },
         ]
     },
     {
@@ -38,6 +38,7 @@ const navSections = [
         items: [
             { to: '/audit-log', label: 'Audit Log', sublabel: 'Activity Trail', icon: ScrollText, ownerOnly: true },
             { to: '/user-management', label: 'User Management', sublabel: 'Admin Panel', icon: ShieldCheck, adminOrOwner: true },
+            { to: '/role-management', label: 'Role Management', sublabel: 'Permissions', icon: FolderKey, adminOnly: true },
         ]
     }
 ]

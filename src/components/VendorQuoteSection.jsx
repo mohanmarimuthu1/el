@@ -20,8 +20,8 @@ export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
     async function fetchIntents() {
         setLoadingIntents(true)
         let query = supabase
-            .from('purchase_intents')
-            .select('id, model_code, description')
+            .from('purchase_intent_headers')
+            .select('id, dept, status, raised_by, created_at, purchase_intent_items(product_name, quantity, uom)')
             .order('created_at', { ascending: false })
         
         if (selectedProjectId) {
@@ -101,10 +101,11 @@ export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
         // Audit log
         const intentInfo = intents.find(i => i.id === selectedIntent)
         const vendorNames = quotes.map(q => q.vendor_name.trim()).filter(Boolean).join(', ')
+        const firstItem = intentInfo?.purchase_intent_items?.[0]
         await supabase.from('activity_logs').insert({
             user_name: user?.email || 'Unknown',
             user_role: 'manager',
-            action: `Added vendor quotes (${vendorNames}) for Intent ${intentInfo?.model_code || selectedIntent}`,
+            action: `Added vendor quotes (${vendorNames}) for Intent [${intentInfo?.dept || '?'}] ${firstItem?.product_name || intentInfo?.id}`,
             entity_type: 'vendor_quote',
             entity_id: selectedIntent,
         })
@@ -156,20 +157,36 @@ export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
                             backgroundSize: '1.25rem',
                         }}
                     >
-                        <option value="">{loadingIntents ? 'Loading intents...' : 'Select an intent...'}</option>
-                        {intents.map((intent) => (
-                            <option key={intent.id} value={intent.id}>
-                                {intent.model_code} — {intent.description?.slice(0, 50)}
-                            </option>
-                        ))}
+                        <option value="">{loadingIntents ? 'Loading intents...' : intents.length === 0 ? 'No intents found' : 'Select an intent...'}</option>
+                        {intents.map((intent) => {
+                            const items = intent.purchase_intent_items || []
+                            const firstItem = items[0]
+                            const label = firstItem
+                                ? `[${intent.dept || 'No Dept'}] ${firstItem.product_name}${items.length > 1 ? ` +${items.length - 1} more` : ''} — ${intent.status}`
+                                : `[${intent.dept || 'No Dept'}] — ${intent.status}`
+                            return (
+                                <option key={intent.id} value={intent.id}>
+                                    {label}
+                                </option>
+                            )
+                        })}
                     </select>
                 </div>
 
                 {selectedIntentData && (
-                    <div className="rounded-xl bg-surface-50 border border-surface-200 px-4 py-3 text-xs text-surface-700">
-                        <span className="font-semibold font-mono text-surface-800">{selectedIntentData.model_code}</span>
-                        <span className="mx-2 text-surface-300">•</span>
-                        {selectedIntentData.description}
+                    <div className="rounded-xl bg-surface-50 border border-surface-200 px-4 py-3 text-xs text-surface-700 space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="font-bold text-surface-800">{selectedIntentData.dept || 'Unknown Dept'}</span>
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">{selectedIntentData.status}</span>
+                            <span className="text-surface-400">• Raised by {selectedIntentData.raised_by || 'Unknown'}</span>
+                        </div>
+                        {(selectedIntentData.purchase_intent_items || []).map((item, i) => (
+                            <div key={i} className="text-surface-600">
+                                <span className="font-mono mr-1 text-surface-400">{i + 1}.</span>
+                                <span className="font-medium">{item.product_name}</span>
+                                <span className="text-surface-400 ml-1">({item.quantity} {item.uom})</span>
+                            </div>
+                        ))}
                     </div>
                 )}
 

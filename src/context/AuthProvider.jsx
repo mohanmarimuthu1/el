@@ -1,14 +1,15 @@
-import { createContext, useState, useEffect, useRef } from 'react'
+import { createContext, useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 export const AuthContext = createContext(null)
 
-const ROLES = ['supervisor', 'owner', 'manager', 'admin', 'employee']
+const ROLES = ['supervisor', 'owner', 'manager', 'admin', 'store', 'employee']
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null)
     const [role, setRole] = useState('owner') // default demo role
     const [loading, setLoading] = useState(true)
+    const [userPermissions, setUserPermissions] = useState({}) // { module: { can_view, ... } }
     const initializedRef = useRef(false)
 
     // Fetch role from user_roles table with a timeout to prevent hanging
@@ -36,6 +37,27 @@ export function AuthProvider({ children }) {
         return null
     }
 
+    async function fetchUserPermissions(fetchedRole) {
+        if (!fetchedRole) return
+        try {
+            const { data: customRole } = await supabase
+                .from('custom_roles')
+                .select('id')
+                .eq('role_name', fetchedRole)
+                .maybeSingle()
+            if (!customRole) return
+            const { data: perms } = await supabase
+                .from('role_permissions')
+                .select('*')
+                .eq('role_id', customRole.id)
+            if (perms) {
+                const map = {}
+                perms.forEach(p => { map[p.module_name] = { can_view: p.can_view, can_create: p.can_create, can_edit: p.can_edit, can_delete: p.can_delete, can_approve: p.can_approve } })
+                setUserPermissions(map)
+            }
+        } catch (e) { console.warn('fetchUserPermissions failed:', e.message) }
+    }
+
     useEffect(() => {
         let cancelled = false
 
@@ -53,6 +75,7 @@ export function AuthProvider({ children }) {
                     if (!fetchedRole && u.user_metadata?.role) {
                         setRole(u.user_metadata.role)
                     }
+                    fetchUserPermissions(fetchedRole || u.user_metadata?.role)
                 }
             } catch (e) {
                 console.warn('Auth init failed:', e.message)
@@ -76,6 +99,7 @@ export function AuthProvider({ children }) {
                 }
             } else {
                 setRole('owner')
+                setUserPermissions({})
             }
 
             // Only clear loading if init hasn't done it yet
@@ -99,6 +123,7 @@ export function AuthProvider({ children }) {
         await supabase.auth.signOut()
         setUser(null)
         setRole('owner')
+        setUserPermissions({})
     }
 
     // Demo role toggle (when no auth user)
@@ -110,7 +135,15 @@ export function AuthProvider({ children }) {
     const isOwner = role === 'owner'
     const canViewFinancials = role === 'owner' || role === 'manager' || role === 'admin'
     const canManageInventory = role === 'owner' || role === 'manager' || role === 'admin'
-    const canCreateProject = true  // All authenticated users can create projects
+    const canCreateProject = true
+
+    // Permission helper: admin/owner always pass; others check custom role permissions
+    const hasPermission = useCallback((module, action) => {
+        if (role === 'admin' || role === 'owner') return true
+        const modPerms = userPermissions[module]
+        if (!modPerms) return true // No custom role config — allow by default
+        return modPerms[action] === true
+    }, [role, userPermissions])
 
     return (
         <AuthContext.Provider value={{
@@ -122,6 +155,8 @@ export function AuthProvider({ children }) {
             canViewFinancials,
             canManageInventory,
             canCreateProject,
+            userPermissions,
+            hasPermission,
             signIn,
             signOut,
             setDemoRole,
