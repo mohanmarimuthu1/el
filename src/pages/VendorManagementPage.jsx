@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { Users, Search, RefreshCw, Plus, Loader2, Pencil, Check, X, Phone, Mail, MapPin, Hash } from 'lucide-react'
+import { Users, Search, RefreshCw, Plus, Loader2, Pencil, Check, X, Phone, Mail, MapPin, Hash, Trash2 } from 'lucide-react'
 
 const emptyForm = { name: '', contact_person: '', phone: '', email: '', address: '', gst_number: '' }
 
@@ -23,6 +23,10 @@ export default function VendorManagementPage() {
     const [editingId, setEditingId] = useState(null)
     const [editForm, setEditForm] = useState({ ...emptyForm })
     const [savingId, setSavingId] = useState(null)
+    
+    // Delete state
+    const [deletingId, setDeletingId] = useState(null)
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
     useEffect(() => { fetchVendors() }, [])
 
@@ -87,6 +91,27 @@ export default function VendorManagementPage() {
         setEditingId(null)
         setSavingId(null)
         fetchVendors()
+    }
+
+    async function deleteVendor(vendor) {
+        if (confirmDeleteId !== vendor.id) {
+            setConfirmDeleteId(vendor.id)
+            setTimeout(() => setConfirmDeleteId(prev => (prev === vendor.id ? null : prev)), 4000)
+            return
+        }
+        setConfirmDeleteId(null)
+        setDeletingId(vendor.id)
+
+        const { error } = await supabase.from('vendors').delete().eq('id', vendor.id)
+        if (error) {
+            console.error('Delete failed:', error)
+            alert(`Failed to delete vendor: ${error.message}`)
+            setDeletingId(null)
+            return
+        }
+
+        setVendors(prev => prev.filter(v => v.id !== vendor.id))
+        setDeletingId(null)
     }
 
     return (
@@ -226,12 +251,33 @@ export default function VendorManagementPage() {
                                                 {v.contact_person && <p className="text-xs text-surface-500">{v.contact_person}</p>}
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => startEdit(v)}
-                                            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-brand-50 text-surface-400 hover:text-brand-600 transition-all"
-                                        >
-                                            <Pencil size={13} />
-                                        </button>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button
+                                                onClick={() => startEdit(v)}
+                                                className="p-1.5 rounded-lg hover:bg-brand-50 text-surface-400 hover:text-brand-600 transition-colors"
+                                                title="Edit Vendor"
+                                            >
+                                                <Pencil size={13} />
+                                            </button>
+                                            {confirmDeleteId === v.id ? (
+                                                <button
+                                                    onClick={() => deleteVendor(v)}
+                                                    disabled={deletingId === v.id}
+                                                    className="px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold shadow-sm transition-all disabled:opacity-40 animate-pulse"
+                                                    title="Click again to confirm delete"
+                                                >
+                                                    {deletingId === v.id ? <Loader2 size={11} className="animate-spin" /> : 'Confirm?'}
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => deleteVendor(v)}
+                                                    className="p-1.5 rounded-lg hover:bg-red-100 text-surface-400 hover:text-red-600 transition-colors"
+                                                    title="Delete Vendor"
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="space-y-2">
