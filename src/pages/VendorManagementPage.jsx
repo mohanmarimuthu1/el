@@ -4,6 +4,15 @@ import { Users, Search, RefreshCw, Plus, Loader2, Pencil, Check, X, Phone, Mail,
 
 const emptyForm = { name: '', contact_person: '', phone: '', email: '', address: '', gst_number: '' }
 
+function generateVendorId() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    let id = 'el_vendor_'
+    for (let i = 0; i < 6; i++) {
+        id += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return id
+}
+
 export default function VendorManagementPage() {
     const [vendors, setVendors] = useState([])
     const [loading, setLoading] = useState(true)
@@ -33,7 +42,9 @@ export default function VendorManagementPage() {
         e.preventDefault()
         if (!form.name.trim()) return
         setSubmitting(true)
+        const vendorId = generateVendorId()
         const { error } = await supabase.from('vendors').insert({
+            id: vendorId,
             name: form.name.trim(),
             contact_person: form.contact_person.trim() || null,
             phone: form.phone.trim() || null,
@@ -41,7 +52,9 @@ export default function VendorManagementPage() {
             address: form.address.trim() || null,
             gst_number: form.gst_number.trim() || null,
         })
-        if (!error) {
+        if (error) {
+            alert(`Failed to add vendor: ${error.message}`)
+        } else {
             setForm({ ...emptyForm })
             setFormOpen(false)
             fetchVendors()
