@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { formatTimestamp } from '@/lib/formatTime'
-import { Building2, Search, RefreshCw, Plus, Edit2, Trash2, AlertCircle, Clock, ArrowLeft, FileText, Upload, ExternalLink, Loader2, Users, Phone } from 'lucide-react'
+import { Building2, Search, RefreshCw, Plus, Edit2, Trash2, AlertCircle, Clock, ArrowLeft, FileText, Upload, ExternalLink, Loader2, Users, Phone, Mail } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function CompanyPaymentsPage() {
@@ -12,18 +12,24 @@ export default function CompanyPaymentsPage() {
     const [submitting, setSubmitting] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [editingId, setEditingId] = useState(null)
+    const [initialLoadDone, setInitialLoadDone] = useState(false)
+    const [dueTodayAlertOpen, setDueTodayAlertOpen] = useState(false)
+    const [dueTodayList, setDueTodayList] = useState([])
 
     // Form state
     const [companyName, setCompanyName] = useState('')
+    const [totalAmount, setTotalAmount] = useState('')
     const [pendingAmount, setPendingAmount] = useState('')
     const [status, setStatus] = useState('unpaid')
     const [priority, setPriority] = useState('later')
+    const [dcStatus, setDcStatus] = useState('not_sent')
     const [bankStatementUrl, setBankStatementUrl] = useState('')
     const [expectedDate, setExpectedDate] = useState('')
     const [address, setAddress] = useState('')
     const [gstNumber, setGstNumber] = useState('')
     const [contactName, setContactName] = useState('')
     const [contactNumber, setContactNumber] = useState('')
+    const [contactEmail, setContactEmail] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
     const [selectedFile, setSelectedFile] = useState(null)
 
@@ -39,7 +45,24 @@ export default function CompanyPaymentsPage() {
             .order('priority', { ascending: true }) // immediate first (assuming alphabetically 'immediate' < 'later' isn't helpful, but let's just order by name or date)
             .order('created_at', { ascending: false })
         
-        if (!error && data) setPayments(data)
+        if (!error && data) {
+            setPayments(data)
+            
+            if (!initialLoadDone) {
+                const today = new Date(); today.setHours(0,0,0,0)
+                const dueToday = data.filter(p => {
+                    if (p.status !== 'unpaid' || !p.expected_date) return false
+                    const d = new Date(p.expected_date); d.setHours(0,0,0,0)
+                    return d.getTime() <= today.getTime()
+                })
+                
+                if (dueToday.length > 0) {
+                    setDueTodayList(dueToday)
+                    setDueTodayAlertOpen(true)
+                }
+                setInitialLoadDone(true)
+            }
+        }
         setLoading(false)
     }
 
@@ -78,15 +101,18 @@ export default function CompanyPaymentsPage() {
 
         const payload = {
             company_name: companyName,
+            total_amount: parseFloat(totalAmount) || 0,
             pending_amount: parseFloat(pendingAmount),
             status,
             priority,
+            dc_status: dcStatus,
             bank_statement_url: finalUrl,
             expected_date: expectedDate || null,
             address,
             gst_number: gstNumber,
             contact_name: contactName,
-            contact_number: contactNumber
+            contact_number: contactNumber,
+            contact_email: contactEmail
         }
 
         let error;
@@ -121,15 +147,18 @@ export default function CompanyPaymentsPage() {
 
     function resetForm() {
         setCompanyName('')
+        setTotalAmount('')
         setPendingAmount('')
         setStatus('unpaid')
         setPriority('later')
+        setDcStatus('not_sent')
         setBankStatementUrl('')
         setExpectedDate('')
         setAddress('')
         setGstNumber('')
         setContactName('')
         setContactNumber('')
+        setContactEmail('')
         setSelectedFile(null)
         setEditingId(null)
         setModalOpen(false)
@@ -138,15 +167,18 @@ export default function CompanyPaymentsPage() {
     function handleEdit(item) {
         setEditingId(item.id)
         setCompanyName(item.company_name)
+        setTotalAmount(item.total_amount || '')
         setPendingAmount(item.pending_amount)
         setStatus(item.status)
         setPriority(item.priority)
+        setDcStatus(item.dc_status || 'not_sent')
         setBankStatementUrl(item.bank_statement_url || '')
         setExpectedDate(item.expected_date || '')
         setAddress(item.address || '')
         setGstNumber(item.gst_number || '')
         setContactName(item.contact_name || '')
         setContactNumber(item.contact_number || '')
+        setContactEmail(item.contact_email || '')
         setSelectedFile(null)
         setModalOpen(true)
     }
@@ -164,6 +196,8 @@ export default function CompanyPaymentsPage() {
     const filtered = payments.filter(row => {
         const matchesSearch = row.company_name?.toLowerCase().includes(search.toLowerCase()) ||
             row.contact_name?.toLowerCase().includes(search.toLowerCase()) ||
+            row.contact_number?.toLowerCase().includes(search.toLowerCase()) ||
+            row.contact_email?.toLowerCase().includes(search.toLowerCase()) ||
             row.gst_number?.toLowerCase().includes(search.toLowerCase())
 
         let matchesStatus = true
@@ -315,7 +349,12 @@ export default function CompanyPaymentsPage() {
                                                 {item.contact_name && (
                                                     <div className="text-[10px] text-surface-500 flex items-center gap-1">
                                                         <Users size={9} /> {item.contact_name}
-                                                        {item.contact_number && <><Phone size={9} className="ml-1" /> {item.contact_number}</>}
+                                                        {item.contact_number && (
+                                                            <>
+                                                                <Phone size={9} className="ml-1" /> 
+                                                                {item.contact_number}
+                                                            </>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -354,9 +393,10 @@ export default function CompanyPaymentsPage() {
                         <thead>
                             <tr className="border-b border-surface-200 bg-surface-50/80">
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider">Company Name</th>
-                                <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider">Pending Amount</th>
+                                <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider">Amounts</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Status</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Priority</th>
+                                <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">DC Status</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Statement</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Expected Date</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Duration</th>
@@ -394,13 +434,28 @@ export default function CompanyPaymentsPage() {
                                                 </div>
                                             )}
                                             {item.contact_number && (
-                                                <div className="text-[10px] text-surface-500 flex items-center gap-1 mt-0.5 font-mono">
-                                                    <Phone size={10} /> {item.contact_number}
+                                                <div className="text-[10px] text-surface-500 flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5 font-mono">
+                                                    {item.contact_number.split(',').map((num, i) => (
+                                                        <span key={i} className="flex items-center gap-1"><Phone size={10} /> {num.trim()}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {item.contact_email && (
+                                                <div className="text-[10px] text-surface-500 flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                                                    {item.contact_email.split(',').map((email, i) => (
+                                                        <span key={i} className="flex items-center gap-1">
+                                                            <Mail size={10} /> 
+                                                            <a href={`mailto:${email.trim()}`} className="hover:text-brand-500" onClick={e => e.stopPropagation()}>{email.trim()}</a>
+                                                        </span>
+                                                    ))}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-5 py-4 font-mono font-bold text-surface-900">
-                                            ₹{parseFloat(item.pending_amount).toLocaleString('en-IN')}
+                                        <td className="px-5 py-4">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="font-mono text-[10px] text-surface-400">Total: ₹{(parseFloat(item.total_amount) || 0).toLocaleString('en-IN')}</span>
+                                                <span className="font-mono font-bold text-surface-900">Pending: ₹{parseFloat(item.pending_amount).toLocaleString('en-IN')}</span>
+                                            </div>
                                         </td>
                                         <td className="px-5 py-4 text-center">
                                             <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -420,6 +475,19 @@ export default function CompanyPaymentsPage() {
                                                 {item.priority === 'immediate' ? <AlertCircle size={10} /> : <Clock size={10} />}
                                                 {item.priority}
                                             </span>
+                                        </td>
+                                        <td className="px-5 py-4 text-center">
+                                            {item.dc_status === 'sent' ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">
+                                                    <FileText size={10} /> Sent
+                                                </span>
+                                            ) : item.dc_status === 'not_sent' ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-100 text-surface-600 text-[10px] font-bold uppercase tracking-wider">
+                                                    Not Sent
+                                                </span>
+                                            ) : (
+                                                <span className="text-surface-300 font-mono text-xs">N/A</span>
+                                            )}
                                         </td>
                                         <td className="px-5 py-4 text-center">
                                             {item.bank_statement_url ? (
@@ -532,19 +600,33 @@ export default function CompanyPaymentsPage() {
                                     className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-medium"
                                 />
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Pending Amount (₹)</label>
-                                <input
-                                    required
-                                    type="number"
-                                    step="0.01"
-                                    value={pendingAmount}
-                                    onChange={(e) => setPendingAmount(e.target.value)}
-                                    placeholder="0.00"
-                                    className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
-                                />
-                            </div>
                             <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Total Amount (₹)</label>
+                                    <input
+                                        required
+                                        type="number"
+                                        step="0.01"
+                                        value={totalAmount}
+                                        onChange={(e) => setTotalAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Pending Amount (₹)</label>
+                                    <input
+                                        required
+                                        type="number"
+                                        step="0.01"
+                                        value={pendingAmount}
+                                        onChange={(e) => setPendingAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Status</label>
                                     <select
@@ -565,6 +647,18 @@ export default function CompanyPaymentsPage() {
                                     >
                                         <option value="later">Later</option>
                                         <option value="immediate">Immediate</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">DC Status</label>
+                                    <select
+                                        value={dcStatus}
+                                        onChange={(e) => setDcStatus(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-bold appearance-none"
+                                    >
+                                        <option value="not_sent">Not Sent</option>
+                                        <option value="sent">Sent</option>
+                                        <option value="na">N/A</option>
                                     </select>
                                 </div>
                             </div>
@@ -616,13 +710,23 @@ export default function CompanyPaymentsPage() {
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Contact Number</label>
+                                        <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Contact Number(s)</label>
                                         <input
                                             type="text"
                                             value={contactNumber}
                                             onChange={(e) => setContactNumber(e.target.value)}
-                                            placeholder="Mobile/Phone"
-                                            className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                                            placeholder="Comma separated for multiple"
+                                            className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5 col-span-2">
+                                        <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Contact Email(s)</label>
+                                        <input
+                                            type="text"
+                                            value={contactEmail}
+                                            onChange={(e) => setContactEmail(e.target.value)}
+                                            placeholder="Comma separated for multiple"
+                                            className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-medium text-sm"
                                         />
                                     </div>
                                 </div>
@@ -703,6 +807,47 @@ export default function CompanyPaymentsPage() {
                                 </button>
                             </div>
                         </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Due Today Popup Alert */}
+            {dueTodayAlertOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-900/60 backdrop-blur-sm shadow-2xl transition-all"
+                     onClick={() => setDueTodayAlertOpen(false)}>
+                    <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl relative"
+                         onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-br from-rose-500 to-rose-600 p-6 text-center shadow-inner">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 mb-3 shadow-lg ring-4 ring-rose-400">
+                                <AlertCircle size={32} className="text-white animate-bounce" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white tracking-tight">Payments Due!</h3>
+                            <p className="text-rose-100 text-sm mt-1 font-medium">
+                                You have {dueTodayList.length} {dueTodayList.length === 1 ? 'company' : 'companies'} needing payment attention today.
+                            </p>
+                        </div>
+                        <div className="p-6">
+                            <div className="space-y-3 mb-6 max-h-[40vh] overflow-y-auto pr-2">
+                                {dueTodayList.map(item => {
+                                    const expDate = new Date(item.expected_date); expDate.setHours(0,0,0,0)
+                                    const today = new Date(); today.setHours(0,0,0,0)
+                                    const isOverdue = expDate.getTime() < today.getTime()
+                                    return (
+                                        <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl bg-surface-50 border border-surface-100 hover:bg-rose-50 transition-colors">
+                                            <div className="font-bold text-surface-900 text-sm truncate mr-2">{item.company_name}</div>
+                                            <div className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm ${isOverdue ? 'bg-rose-100 text-rose-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                {isOverdue ? 'Overdue' : 'Due Today'}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                            <button
+                                onClick={() => setDueTodayAlertOpen(false)}
+                                className="w-full py-3.5 bg-surface-900 text-white rounded-2xl font-bold shadow-xl shadow-surface-900/20 hover:bg-surface-800 transition-all active:scale-[0.98]"
+                            >
+                                Got it, let's review
+                            </button>
                         </div>
                     </div>
                 </div>

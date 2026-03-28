@@ -18,6 +18,7 @@ import RoleManagementPage from '@/pages/RoleManagementPage'
 import ProjectsPage from '@/pages/ProjectsPage'
 import ProjectWorkspacePage from '@/pages/ProjectWorkspacePage'
 import CompanyPaymentsPage from '@/pages/CompanyPaymentsPage'
+import EmployeeWorklogPage from '@/pages/EmployeeWorklogPage'
 import ProjectGuard from '@/components/ProjectGuard'
 
 // Guard: If not logged in, redirect to /login
@@ -103,6 +104,7 @@ export default function App() {
             <Route path="projects" element={<ProjectsPage setSelectedProjectId={setSelectedProjectId} />} />
             <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
             <Route path="project-usage" element={<ProjectInventoryPage selectedProjectId={selectedProjectId} />} />
+            <Route path="worklogs" element={<EmployeeWorklogPage />} />
             <Route path="user-management" element={<AdminUserManagementPage />} />
             <Route path="role-management" element={<RoleManagementPage />} />
           </Route>
