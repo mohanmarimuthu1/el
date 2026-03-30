@@ -8,6 +8,7 @@ const UOM_OPTIONS = ['NOS', 'MTR', 'KG', 'SET', 'ROLL', 'BOX', 'PCS', 'PAIR', 'L
 
 const emptyForm = {
     product_name: '',
+    department: '',
     manufacturer: '',
     model_number: '',
     quantity: '0',
@@ -41,12 +42,13 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
     async function handleSubmit(e) {
         e.preventDefault()
         if (!form.product_name.trim()) return setError('Product Name is required')
-        if (!form.manufacturer.trim()) return setError('Manufacturer is required')
+        if (!form.manufacturer.trim()) return setError('Make is required')
 
         setSubmitting(true)
 
         const { error: insertError } = await supabase.from('inventory').insert({
             product_name: form.product_name.trim(),
+            department: form.department.trim() || null,
             manufacturer: form.manufacturer.trim().toUpperCase(),
             model_number: form.model_number.trim() || '-',
             quantity: parseInt(form.quantity) || 0,
@@ -104,6 +106,19 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* Department */}
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
+                            Department
+                        </label>
+                        <input
+                            value={form.department}
+                            onChange={e => handle('department', e.target.value)}
+                            placeholder="e.g. Electrical, Mechanical"
+                            className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                        />
+                    </div>
+
                     {/* Product Name */}
                     <div>
                         <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
@@ -121,7 +136,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
-                                Manufacturer <span className="text-red-400">*</span>
+                                Make <span className="text-red-400">*</span>
                             </label>
                             <SearchableDropdown
                                 category="manufacturer"
@@ -168,7 +183,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
 
                     {/* Description */}
                     <div>
-                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Description</label>
+                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Product Description</label>
                         <input
                             value={form.description}
                             onChange={e => handle('description', e.target.value)}
@@ -250,7 +265,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                             disabled={submitting}
                             className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 transition-all disabled:opacity-60"
                         >
-                            {submitting ? <><Loader2 size={14} className="animate-spin" /> Adding...</> : <><Plus size={14} /> Add Product</>}
+                            {submitting ? <><Loader2 size={14} className="animate-spin" /> Submitting...</> : <><Plus size={14} /> Submit</>}
                         </button>
                     </div>
                 </form>
