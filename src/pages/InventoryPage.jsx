@@ -27,7 +27,7 @@ export default function InventoryPage() {
 
     // Inline editing state
     const [editingId, setEditingId] = useState(null)
-    const [editForm, setEditForm] = useState({ product_name: '', manufacturer: '', model_number: '', serial_number: '', quantity: '', uom: 'NOS', description: '', reason: '', min_stock_level: '', max_stock_level: '' })
+    const [editForm, setEditForm] = useState({ product_name: '', manufacturer: '', model_number: '', serial_number: '', quantity: '', uom: 'NOS', description: '', reason: '', maintain_stock: false, min_stock_level: '', max_stock_level: '' })
     const [saving, setSaving] = useState(false)
     const [deletingId, setDeletingId] = useState(null)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -127,6 +127,7 @@ export default function InventoryPage() {
             uom: row.uom || 'NOS',
             description: row.description || '',
             reason: '',
+            maintain_stock: row.maintain_stock ?? false,
             min_stock_level: String(row.min_stock_level ?? 0),
             max_stock_level: String(row.max_stock_level ?? 0),
         })
@@ -134,7 +135,7 @@ export default function InventoryPage() {
 
     function cancelEdit() {
         setEditingId(null)
-        setEditForm({ product_name: '', manufacturer: '', model_number: '', serial_number: '', quantity: '', uom: 'NOS', description: '', reason: '', min_stock_level: '', max_stock_level: '' })
+        setEditForm({ product_name: '', manufacturer: '', model_number: '', serial_number: '', quantity: '', uom: 'NOS', description: '', reason: '', maintain_stock: false, min_stock_level: '', max_stock_level: '' })
     }
 
     async function saveEdit(row) {
@@ -145,8 +146,9 @@ export default function InventoryPage() {
         const newManufacturer = editForm.manufacturer.trim()
         const newModelNumber = editForm.model_number.trim()
         const newSerialNumber = editForm.serial_number.trim()
-        const newMinStock = parseInt(editForm.min_stock_level) || 0
-        const newMaxStock = parseInt(editForm.max_stock_level) || 0
+        const newMaintainStock = editForm.maintain_stock
+        const newMinStock = newMaintainStock ? (parseInt(editForm.min_stock_level) || 0) : 0
+        const newMaxStock = newMaintainStock ? (parseInt(editForm.max_stock_level) || 0) : 0
 
         const stockChanged = newStock !== row.quantity
         const uomChanged = newUom !== (row.uom || 'NOS')
@@ -161,6 +163,7 @@ export default function InventoryPage() {
         if (newManufacturer !== (row.manufacturer || '')) changes.push(`Manufacturer updated`)
         if (newModelNumber !== (row.model_number || '')) changes.push(`Model Number updated`)
         if (newSerialNumber !== (row.serial_number || '')) changes.push(`Serial No updated`)
+        if (newMaintainStock !== (row.maintain_stock ?? false)) changes.push(`Maintain Stock: ${newMaintainStock ? 'Enabled' : 'Disabled'}`)
         if (newMinStock !== (row.min_stock_level ?? 0)) changes.push(`Min Stock: ${row.min_stock_level ?? 0} → ${newMinStock}`)
         if (newMaxStock !== (row.max_stock_level ?? 0)) changes.push(`Max Stock: ${row.max_stock_level ?? 0} → ${newMaxStock}`)
 
@@ -176,6 +179,7 @@ export default function InventoryPage() {
             quantity: newStock,
             uom: newUom,
             description: newDesc || null,
+            maintain_stock: newMaintainStock,
             min_stock_level: newMinStock,
             max_stock_level: newMaxStock,
             updated_at: new Date().toISOString(),
@@ -593,12 +597,26 @@ export default function InventoryPage() {
 
                                             {/* Maintain Stock */}
                                             <td className="px-5 py-3.5 text-center">
-                                                {row.maintain_stock ? <Check size={16} className="text-brand-500 mx-auto" /> : <X size={16} className="text-surface-300 mx-auto" />}
+                                                {isEditing ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditForm(prev => ({ ...prev, maintain_stock: !prev.maintain_stock }))}
+                                                        className={`mx-auto transition-colors ${editForm.maintain_stock ? 'text-brand-500' : 'text-surface-300'}`}
+                                                        title={editForm.maintain_stock ? 'Click to disable' : 'Click to enable'}
+                                                    >
+                                                        {editForm.maintain_stock
+                                                            ? <Check size={16} className="text-brand-500" />
+                                                            : <X size={16} className="text-surface-300" />
+                                                        }
+                                                    </button>
+                                                ) : (
+                                                    row.maintain_stock ? <Check size={16} className="text-brand-500 mx-auto" /> : <X size={16} className="text-surface-300 mx-auto" />
+                                                )}
                                             </td>
 
                                             {/* Min Qty */}
                                             <td className="px-5 py-3.5 text-center">
-                                                {isEditing && row.maintain_stock ? (
+                                                {isEditing && editForm.maintain_stock ? (
                                                     <input type="number" min="0" value={editForm.min_stock_level} onChange={e => setEditForm(prev => ({ ...prev, min_stock_level: e.target.value }))} className="w-16 mx-auto px-2 py-1 text-xs text-center rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all font-mono text-surface-600" placeholder="0" />
                                                 ) : (
                                                     <span className="text-xs font-mono text-surface-600">{row.maintain_stock ? row.min_stock_level : '—'}</span>
@@ -607,7 +625,7 @@ export default function InventoryPage() {
 
                                             {/* Max Qty */}
                                             <td className="px-5 py-3.5 text-center">
-                                                {isEditing && row.maintain_stock ? (
+                                                {isEditing && editForm.maintain_stock ? (
                                                     <input
                                                         type="number"
                                                         min="0"

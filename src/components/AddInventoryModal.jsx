@@ -52,7 +52,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
             department: form.department.trim() || null,
             manufacturer: form.manufacturer.trim().toUpperCase(),
             model_number: form.model_number.trim() || '-',
-            serial_number: form.serial_number.trim() || '-',
+            serial_number: form.serial_number.trim() || null,
             quantity: parseInt(form.quantity) || 0,
             uom: form.uom || 'NOS',
             description: form.description.trim() || null,
