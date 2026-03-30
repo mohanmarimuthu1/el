@@ -11,6 +11,7 @@ const emptyForm = {
     department: '',
     manufacturer: '',
     model_number: '',
+    serial_number: '',
     quantity: '0',
     uom: 'NOS',
     description: '',
@@ -51,6 +52,7 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
             department: form.department.trim() || null,
             manufacturer: form.manufacturer.trim().toUpperCase(),
             model_number: form.model_number.trim() || '-',
+            serial_number: form.serial_number.trim() || '-',
             quantity: parseInt(form.quantity) || 0,
             uom: form.uom || 'NOS',
             description: form.description.trim() || null,
@@ -111,11 +113,11 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                         <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
                             Department
                         </label>
-                        <input
+                        <SearchableDropdown
+                            category="department"
                             value={form.department}
-                            onChange={e => handle('department', e.target.value)}
-                            placeholder="e.g. Electrical, Mechanical"
-                            className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                            onChange={val => handle('department', val)}
+                            placeholder="Select or type..."
                         />
                     </div>
 
@@ -156,6 +158,19 @@ export default function AddInventoryModal({ open, onClose, onSuccess }) {
                                 placeholder="e.g. GV2-ME20"
                             />
                         </div>
+                    </div>
+
+                    {/* Serial Number */}
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
+                            Serial Number
+                        </label>
+                        <input
+                            value={form.serial_number}
+                            onChange={e => handle('serial_number', e.target.value)}
+                            placeholder="If applicable..."
+                            className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                        />
                     </div>
 
                     {/* Initial Qty */}
