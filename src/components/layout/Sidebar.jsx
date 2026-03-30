@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase, Building2, Lock, FolderKey } from 'lucide-react'
+import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase, Building2, Lock, FolderKey, Bell } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabaseClient'
 import { useState, useEffect } from 'react'
@@ -29,7 +29,7 @@ const navSections = [
         items: [
             { to: '/projects', label: 'Active Projects', sublabel: 'Manager', icon: Briefcase },
             { to: '/despatch', label: 'Despatch', sublabel: 'Outbound', icon: Truck, designGated: true },
-            { to: '/purchase-intents', label: 'Purchase Intents', sublabel: 'Purchase Request Ledger', icon: FileText, designGated: true },
+            { to: '/purchase-intents', label: 'Purchase Indents', sublabel: 'Purchase Request Ledger', icon: FileText, designGated: true },
             { to: '/project-usage', label: 'Despatch History', sublabel: 'Material Allocation Log', icon: LayoutGrid, designGated: true },
         ]
     },
@@ -47,6 +47,7 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
     const { role, canViewFinancials, isAdmin, isOwner } = useAuth()
     const [activeProject, setActiveProject] = useState(null)
     const [designApproved, setDesignApproved] = useState(false)
+    const [pendingApprovals, setPendingApprovals] = useState(0)
 
     useEffect(() => {
         if (selectedProjectId) {
@@ -56,6 +57,36 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
             setDesignApproved(false)
         }
     }, [selectedProjectId])
+
+    useEffect(() => {
+        fetchPendingApprovals()
+        const interval = setInterval(fetchPendingApprovals, 30000)
+        return () => clearInterval(interval)
+    }, [role, selectedProjectId])
+
+    async function fetchPendingApprovals() {
+        let query = supabase
+            .from('purchase_intent_headers')
+            .select('id, approved_manager, approved_store, approved_purchase, approved_md, status')
+            .neq('status', 'Delivered')
+
+        if (selectedProjectId) {
+            query = query.eq('project_id', selectedProjectId)
+        }
+
+        const { data } = await query
+
+        if (data) {
+            const pending = data.filter(item => {
+                if ((role === 'manager' || isAdmin) && !item.approved_manager) return true
+                if ((role === 'store' || isAdmin) && item.approved_manager && !item.approved_store) return true
+                if ((role === 'supervisor' || isAdmin) && item.approved_store && !item.approved_purchase) return true
+                if ((role === 'owner' || isAdmin) && item.approved_purchase && !item.approved_md) return true
+                return false
+            })
+            setPendingApprovals(pending.length)
+        }
+    }
 
     async function fetchProjectInfo() {
         const { data, error } = await supabase
@@ -145,8 +176,10 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                                     {section.title}
                                 </h3>
                                 <div className="space-y-1">
-                                    {filteredItems.map(({ to, label, sublabel, icon: Icon, designGated }) => {
+                                    {filteredItems.map(({ to, label, sublabel, icon: Icon, designGated, showNotification }) => {
                                     const gated = isItemGated({ designGated })
+                                    const isPurchaseIndent = to === '/purchase-intents'
+                                    const showBadge = isPurchaseIndent && pendingApprovals > 0
                                     
                                     if (gated) {
                                         return (
@@ -187,7 +220,7 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                                                         }`}>
                                                         <Icon size={18} className={isActive ? 'text-white' : 'text-surface-400 group-hover:text-brand-500'} />
                                                     </div>
-                                                    <div className="min-w-0">
+                                                    <div className="min-w-0 flex-1">
                                                         <div className="truncate tracking-tight">{label}</div>
                                                         {sublabel && (
                                                             <div className={`text-[9px] font-bold uppercase tracking-wider opacity-60 ${isActive ? 'text-white' : 'text-surface-400'
@@ -196,6 +229,12 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                                                             </div>
                                                         )}
                                                     </div>
+                                                    {showBadge && (
+                                                        <div className="flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-lg shadow-red-500/30">
+                                                            <Bell size={10} />
+                                                            {pendingApprovals}
+                                                        </div>
+                                                    )}
                                                 </>
                                             )}
                                         </NavLink>

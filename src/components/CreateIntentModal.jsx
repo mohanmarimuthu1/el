@@ -17,7 +17,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
     const { user } = useAuth()
 
     // Mode: 'project_intent' | 'general_stock'
-    const [intentType, setIntentType] = useState(selectedProjectId ? 'project_intent' : 'general_stock')
+    const [indentType, setIndentType] = useState(selectedProjectId ? 'project_intent' : 'general_stock')
 
     // Shared fields
     const [department, setDepartment] = useState('Electrical')
@@ -25,7 +25,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
     const [projectId, setProjectId] = useState(selectedProjectId || '')
     const [projects, setProjects] = useState([])
 
-    // Product rows (for project intent bulk-add)
+    // Product rows (for project indent bulk-add)
     const [products, setProducts] = useState([BLANK_PRODUCT()])
 
     // General stock uses a single flat form
@@ -39,7 +39,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
         raised_by: '',
     })
 
-    // Inventory suggestions (for project intent)
+    // Inventory suggestions (for project indent)
     const [inventorySuggestions, setInventorySuggestions] = useState([])
 
     // Project specs & designs
@@ -54,7 +54,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
 
     useEffect(() => {
         if (open) {
-            setIntentType(selectedProjectId ? 'project_intent' : 'general_stock')
+            setIndentType(selectedProjectId ? 'project_intent' : 'general_stock')
             setDepartment('Electrical')
             setRaisedBy(user?.user_metadata?.full_name || user?.email || '')
             setProducts([BLANK_PRODUCT()])
@@ -158,7 +158,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
         e.preventDefault()
         setError('')
 
-        if (intentType === 'project_intent') {
+        if (indentType === 'project_intent') {
             if (!projectId) return setError('Please select a project')
             // Validate all rows
             for (const p of products) {
@@ -250,7 +250,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 shadow-md shadow-brand-500/25">
                                     <Plus size={16} className="text-white" />
                                 </div>
-                                New Purchase Intent
+                                New Purchase Indent
                             </h3>
                             <p className="text-xs text-surface-700/50 mt-0.5 ml-10">Raise a material procurement request</p>
                         </div>
@@ -265,14 +265,14 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                             <div className="grid grid-cols-2 gap-3">
                                 <button
                                     type="button"
-                                    onClick={() => setIntentType('project_intent')}
+                                    onClick={() => setIndentType('project_intent')}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
-                                        intentType === 'project_intent'
+                                        indentType === 'project_intent'
                                             ? 'border-brand-400 bg-brand-50 text-brand-700'
                                             : 'border-surface-200 bg-white text-surface-600 hover:border-surface-300'
                                     }`}
                                 >
-                                    <Briefcase size={18} className={intentType === 'project_intent' ? 'text-brand-500' : 'text-surface-400'} />
+                                    <Briefcase size={18} className={indentType === 'project_intent' ? 'text-brand-500' : 'text-surface-400'} />
                                     <div>
                                         <p className="text-sm font-bold">Project Stock</p>
                                         <p className="text-[10px] mt-0.5 opacity-70">Linked to a project</p>
@@ -282,12 +282,12 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                     type="button"
                                     onClick={() => setIntentType('general_stock')}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
-                                        intentType === 'general_stock'
+                                        indentType === 'general_stock'
                                             ? 'border-amber-400 bg-amber-50 text-amber-700'
                                             : 'border-surface-200 bg-white text-surface-600 hover:border-surface-300'
                                     }`}
                                 >
-                                    <Warehouse size={18} className={intentType === 'general_stock' ? 'text-amber-500' : 'text-surface-400'} />
+                                    <Warehouse size={18} className={indentType === 'general_stock' ? 'text-amber-500' : 'text-surface-400'} />
                                     <div>
                                         <p className="text-sm font-bold">General Stock</p>
                                         <p className="text-[10px] mt-0.5 opacity-70">Warehouse replenishment</p>
@@ -297,7 +297,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                         )}
 
                         {/* ── PROJECT INTENT MODE ── */}
-                        {intentType === 'project_intent' && (
+                        {indentType === 'project_intent' && (
                             <>
                                 {/* Project Selector (if not in project context) */}
                                 {!selectedProjectId && (
@@ -387,7 +387,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                         )}
 
                         {/* ── GENERAL STOCK MODE ── */}
-                        {intentType === 'general_stock' && (
+                        {indentType === 'general_stock' && (
                             <>
                                 <div className="space-y-1.5">
                                     <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">
@@ -403,7 +403,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
 
                                 <div className="space-y-1.5">
                                     <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">
-                                        Product <span className="text-red-400">*</span>
+                                        Product Name <span className="text-red-400">*</span>
                                     </label>
                                     <textarea
                                         value={generalForm.description}
@@ -559,7 +559,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                 className={`flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-xl text-white transition-all shadow-lg ${
                                     success
                                         ? 'bg-emerald-500 shadow-emerald-500/25'
-                                        : intentType === 'general_stock'
+                                        : indentType === 'general_stock'
                                             ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-500/25'
                                             : 'bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-brand-500/25'
                                 } disabled:opacity-70 disabled:cursor-not-allowed`}
@@ -587,7 +587,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
     )
 }
 
-// ─── Per-product row for bulk intent creation ───
+// ─── Per-product row for bulk indent creation ───
 function ProductRow({ product, index, suggestions, onChange, onSuggestion, onRemove }) {
     const [showSuggestions, setShowSuggestions] = useState(false)
     const [filteredSuggestions, setFilteredSuggestions] = useState([])
@@ -631,7 +631,7 @@ function ProductRow({ product, index, suggestions, onChange, onSuggestion, onRem
             {/* Description with inventory suggestions */}
             <div className="relative" ref={sugRef}>
                 <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
-                    Product / Material <span className="text-red-400">*</span>
+                    Product Name <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                     <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-300 pointer-events-none" />

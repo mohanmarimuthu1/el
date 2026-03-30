@@ -18,7 +18,7 @@ export default function InventoryPage() {
     const [search, setSearch] = useState('')
     const [modalOpen, setModalOpen] = useState(false)
     const [purchaseModalOpen, setPurchaseModalOpen] = useState(false)
-    const [intentModalOpen, setIntentModalOpen] = useState(false)
+    const [indentModalOpen, setIndentModalOpen] = useState(false)
 
     // Multi-select state
     const [selectedIds, setSelectedIds] = useState(new Set())
@@ -710,7 +710,7 @@ export default function InventoryPage() {
 
             {/* Create Intent Modal for General Stock */}
             <CreateIntentModal
-                open={intentModalOpen}
+                open={indentModalOpen}
                 onClose={() => setIntentModalOpen(false)}
             />
 
