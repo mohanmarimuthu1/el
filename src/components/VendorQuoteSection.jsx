@@ -7,7 +7,7 @@ const emptyQuote = { vendor_name: '', product_name: '', price_quoted: '', gst_rc
 
 export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
     const { user } = useAuth()
-    const [intents, setIntents] = useState([])
+    const [indents, setIntents] = useState([])
     const [selectedIntent, setSelectedIntent] = useState('')
     const [quotes, setQuotes] = useState([{ ...emptyQuote }])
     const [submitting, setSubmitting] = useState(false)
@@ -67,7 +67,7 @@ export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
         e.preventDefault()
         setError('')
 
-        if (!selectedIntent) return setError('Please select a Purchase Intent')
+        if (!selectedIntent) return setError('Please select a Purchase Indent')
 
         // Validate all quotes have at least a name and price
         for (let i = 0; i < quotes.length; i++) {
@@ -99,13 +99,13 @@ export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
         }
 
         // Audit log
-        const intentInfo = intents.find(i => i.id === selectedIntent)
+        const intentInfo = indents.find(i => i.id === selectedIntent)
         const vendorNames = quotes.map(q => q.vendor_name.trim()).filter(Boolean).join(', ')
         const firstItem = intentInfo?.purchase_intent_items?.[0]
         await supabase.from('activity_logs').insert({
             user_name: user?.email || 'Unknown',
             user_role: 'manager',
-            action: `Added vendor quotes (${vendorNames}) for Intent [${intentInfo?.dept || '?'}] ${firstItem?.product_name || intentInfo?.id}`,
+            action: `Added vendor quotes (${vendorNames}) for Indent [${intentInfo?.dept || '?'}] ${firstItem?.product_name || intentInfo?.id}`,
             entity_type: 'vendor_quote',
             entity_id: selectedIntent,
         })
@@ -121,7 +121,7 @@ export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
     }
 
     const bestIdx = findLowestPriceIndex()
-    const selectedIntentData = intents.find(i => i.id === selectedIntent)
+    const selectedIntentData = indents.find(i => i.id === selectedIntent)
 
     return (
         <div className="rounded-2xl border border-surface-200 bg-white shadow-sm overflow-hidden">
@@ -143,7 +143,7 @@ export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
                 {/* Select Intent */}
                 <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider">
-                        Purchase Intent <span className="text-red-400">*</span>
+                        Purchase Indent <span className="text-red-400">*</span>
                     </label>
                     <select
                         value={selectedIntent}
@@ -157,8 +157,8 @@ export default function VendorQuoteSection({ onSuccess, selectedProjectId }) {
                             backgroundSize: '1.25rem',
                         }}
                     >
-                        <option value="">{loadingIntents ? 'Loading intents...' : intents.length === 0 ? 'No intents found' : 'Select an intent...'}</option>
-                        {intents.map((intent) => {
+                        <option value="">{loadingIntents ? 'Loading indents...' : indents.length === 0 ? 'No indents found' : 'Select an indent...'}</option>
+                        {indents.map((intent) => {
                             const items = intent.purchase_intent_items || []
                             const firstItem = items[0]
                             const label = firstItem

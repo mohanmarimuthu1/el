@@ -6,7 +6,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import InventoryPage from '@/pages/InventoryPage'
-import PurchaseIntentsPage from '@/pages/PurchaseIntentsPage'
+import PurchaseIndentsPage from '@/pages/PurchaseIndentsPage'
 import VendorManagementPage from '@/pages/VendorManagementPage'
 import PublicInventoryPage from '@/pages/PublicInventoryPage'
 import AuditLogPage from '@/pages/AuditLogPage'
@@ -97,7 +97,7 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="purchase-entries" element={<PurchaseEntriesPage />} />
-            <Route path="purchase-intents" element={<PurchaseIntentsPage selectedProjectId={selectedProjectId} />} />
+            <Route path="purchase-intents" element={<PurchaseIndentsPage selectedProjectId={selectedProjectId} />} />
             <Route path="vendors" element={<VendorManagementPage />} />
             <Route path="audit-log" element={<AuditLogPage />} />
             <Route path="despatch" element={<DespatchPage selectedProjectId={selectedProjectId} />} />

@@ -9,7 +9,7 @@ import {
 
 const MODULES = [
     { key: 'inventory',         label: 'Inventory',          icon: '📦' },
-    { key: 'purchase_intents',  label: 'Purchase Intents',   icon: '📋' },
+    { key: 'purchase_intents',  label: 'Purchase Indents',   icon: '📋' },
     { key: 'vendors',           label: 'Vendors',            icon: '🏢' },
     { key: 'projects',          label: 'Projects',           icon: '🏗️' },
     { key: 'despatch',          label: 'Despatch',           icon: '🚛' },

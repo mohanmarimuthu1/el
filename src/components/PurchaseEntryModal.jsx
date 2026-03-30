@@ -1,24 +1,31 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
-import { X, Plus, Loader2, ShoppingBag, ToggleLeft, ToggleRight } from 'lucide-react'
+import { X, Plus, Loader2, ShoppingBag, Trash2 } from 'lucide-react'
 import SearchableDropdown from '@/components/SearchableDropdown'
 
 const UOM_OPTIONS = ['NOS', 'MTR', 'KG', 'SET', 'ROLL', 'BOX', 'PCS', 'PAIR', 'LOT', 'LTR']
 
+function BLANK_ITEM() {
+    return {
+        key: Date.now() + Math.random(),
+        product_name: '',
+        manufacturer: '',
+        model_number: '',
+        serial_number: '',
+        quantity: '1',
+        uom: 'NOS',
+        remarks: '',
+        amount: '',
+        gst_percent: '0',
+    }
+}
+
 const emptyForm = {
-    product_name: '',
-    manufacturer: '',
-    model_number: '',
-    serial_number: '',
-    quantity: '1',
-    uom: 'NOS',
-    description: '',
     invoice_no: '',
     vendor_name: '',
     invoice_date: '',
-    maintain_stock: false,
-    min_stock_level: '0',
+    items: [BLANK_ITEM()],
 }
 
 export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
@@ -48,40 +55,61 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
         setError('')
     }
 
+    function updateItem(key, field, value) {
+        setForm(prev => ({
+            ...prev,
+            items: prev.items.map(item => item.key === key ? { ...item, [field]: value } : item)
+        }))
+        setError('')
+    }
+
+    function addItem() {
+        setForm(prev => ({ ...prev, items: [...prev.items, BLANK_ITEM()] }))
+    }
+
+    function removeItem(key) {
+        if (form.items.length > 1) {
+            setForm(prev => ({ ...prev, items: prev.items.filter(item => item.key !== key) }))
+        }
+    }
+
     async function handleSubmit(e) {
         e.preventDefault()
-        if (!form.product_name.trim()) return setError('Product Name is required')
-        if (!form.manufacturer.trim()) return setError('Manufacturer is required')
         if (!form.vendor_name.trim()) return setError('Vendor Name is required')
         if (!form.invoice_no.trim()) return setError('Invoice No. is required')
         if (!form.invoice_date) return setError('Invoice Date is required')
 
-        setSubmitting(true)
-
-        const { error: insertError } = await supabase.from('inventory').insert({
-            product_name: form.product_name.trim(),
-            manufacturer: form.manufacturer.trim().toUpperCase(),
-            model_number: form.model_number.trim() || '-',
-            serial_number: form.serial_number.trim() || null,
-            quantity: parseInt(form.quantity) || 0,
-            uom: form.uom || 'NOS',
-            description: form.description.trim() || null,
-            maintain_stock: form.maintain_stock,
-            min_stock_level: form.maintain_stock ? (parseInt(form.min_stock_level) || 0) : 0,
-        })
-
-        if (insertError) {
-            setError(insertError.message)
-            setSubmitting(false)
-            return
+        for (const item of form.items) {
+            if (!item.product_name.trim()) return setError('Product Name is required for all items')
+            if (!item.manufacturer.trim()) return setError('Manufacturer is required for all items')
         }
 
-        await supabase.from('activity_logs').insert({
-            user_name: user?.user_metadata?.full_name || user?.email || 'User',
-            user_role: role,
-            action: `Purchase entry: ${form.product_name.trim()} × ${form.quantity} | Vendor: ${form.vendor_name} | Invoice: ${form.invoice_no} (${form.invoice_date})`,
-            entity_type: 'inventory',
-        })
+        setSubmitting(true)
+
+        for (const item of form.items) {
+            const { error: insertError } = await supabase.from('inventory').insert({
+                product_name: item.product_name.trim(),
+                manufacturer: item.manufacturer.trim().toUpperCase(),
+                model_number: item.model_number.trim() || '-',
+                serial_number: item.serial_number.trim() || null,
+                quantity: parseInt(item.quantity) || 0,
+                uom: item.uom || 'NOS',
+                description: item.remarks.trim() || null,
+            })
+
+            if (insertError) {
+                setError(insertError.message)
+                setSubmitting(false)
+                return
+            }
+
+            await supabase.from('activity_logs').insert({
+                user_name: user?.user_metadata?.full_name || user?.email || 'User',
+                user_role: role,
+                action: `Purchase entry: ${item.product_name.trim()} × ${item.quantity} | Vendor: ${form.vendor_name} | Invoice: ${form.invoice_no} (${form.invoice_date}) | Amount: ₹${item.amount || 0} | GST: ${item.gst_percent || 0}%`,
+                entity_type: 'inventory',
+            })
+        }
 
         setSuccess(true)
         setTimeout(() => {
@@ -98,7 +126,7 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-surface-900/30 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-surface-200 overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-surface-200 overflow-hidden max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-surface-200 bg-surface-50/50 sticky top-0">
                     <div className="flex items-center gap-2">
@@ -163,121 +191,135 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
                         </div>
                     </div>
 
-                    {/* ─── Product Details ─── */}
+                    {/* ─── Product Items ─── */}
                     <div>
                         <p className="text-[10px] font-bold text-surface-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <span className="flex h-4 w-4 items-center justify-center rounded bg-brand-100 text-brand-600 text-[9px] font-bold">2</span>
-                            Product Details
+                            Product Items
                         </p>
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
-                                    Product Name <span className="text-red-400">*</span>
-                                </label>
-                                <input
-                                    value={form.product_name}
-                                    onChange={e => handle('product_name', e.target.value)}
-                                    placeholder="e.g. MCB 25A 3-Pole"
-                                    className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
-                                        Manufacturer <span className="text-red-400">*</span>
-                                    </label>
-                                    <SearchableDropdown
-                                        category="manufacturer"
-                                        value={form.manufacturer}
-                                        onChange={val => handle('manufacturer', val)}
-                                        placeholder="Select or type..."
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Model Number</label>
-                                    <SearchableDropdown
-                                        category="model_number"
-                                        value={form.model_number}
-                                        onChange={val => handle('model_number', val)}
-                                        placeholder="e.g. GV2-ME20"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Serial No.</label>
-                                    <input
-                                        value={form.serial_number}
-                                        onChange={e => handle('serial_number', e.target.value)}
-                                        placeholder="SN-..."
-                                        className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
+                            {form.items.map((item, index) => (
+                                <div key={item.key} className="p-4 rounded-xl border border-surface-200 bg-surface-50/50 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-surface-500 uppercase">Item {index + 1}</span>
+                                        {form.items.length > 1 && (
+                                            <button type="button" onClick={() => removeItem(item.key)} className="p-1 rounded-lg hover:bg-red-50 text-surface-400 hover:text-red-500 transition-colors">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    
                                     <div>
-                                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Qty</label>
+                                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
+                                            Product Name <span className="text-red-400">*</span>
+                                        </label>
                                         <input
-                                            type="number"
-                                            min="1"
-                                            value={form.quantity}
-                                            onChange={e => handle('quantity', e.target.value)}
-                                            className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                                            value={item.product_name}
+                                            onChange={e => updateItem(item.key, 'product_name', e.target.value)}
+                                            placeholder="e.g. MCB 25A 3-Pole"
+                                            className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
                                         />
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">UOM</label>
-                                        <SearchableDropdown
-                                            category="uom"
-                                            value={form.uom}
-                                            onChange={val => handle('uom', val)}
-                                            placeholder="NOS"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Product Description</label>
-                                <textarea
-                                    value={form.description}
-                                    onChange={e => handle('description', e.target.value)}
-                                    rows={2}
-                                    placeholder="Brief specifications..."
-                                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all resize-none"
-                                />
-                            </div>
-
-                            <div className="p-4 rounded-xl border border-surface-200 bg-surface-50">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div>
-                                        <p className="text-xs font-bold text-surface-800 uppercase tracking-wider">Maintain Stock</p>
-                                        <p className="text-[10px] text-surface-500">Track inventory levels</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => handle('maintain_stock', !form.maintain_stock)}
-                                        className={`${form.maintain_stock ? 'text-brand-500' : 'text-surface-300'} transition-colors`}
-                                    >
-                                        {form.maintain_stock ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                                    </button>
-                                </div>
-                                {form.maintain_stock && (
-                                    <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                        <div className="flex-1">
-                                            <label className="block text-[10px] font-bold text-brand-600 uppercase mb-1">Min. Stock Level</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                value={form.min_stock_level}
-                                                onChange={e => handle('min_stock_level', e.target.value)}
-                                                className="w-full px-3 py-2 text-xs rounded-lg border border-brand-200 focus:ring-2 focus:ring-brand-500/20 outline-none font-mono"
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">
+                                                Manufacturer <span className="text-red-400">*</span>
+                                            </label>
+                                            <SearchableDropdown
+                                                category="manufacturer"
+                                                value={item.manufacturer}
+                                                onChange={val => updateItem(item.key, 'manufacturer', val)}
+                                                placeholder="Select or type..."
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Model Number</label>
+                                            <SearchableDropdown
+                                                category="model_number"
+                                                value={item.model_number}
+                                                onChange={val => updateItem(item.key, 'model_number', val)}
+                                                placeholder="e.g. GV2-ME20"
                                             />
                                         </div>
                                     </div>
-                                )}
-                            </div>
+
+                                    <div className="grid grid-cols-4 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Serial No.</label>
+                                            <input
+                                                value={item.serial_number}
+                                                onChange={e => updateItem(item.key, 'serial_number', e.target.value)}
+                                                placeholder="SN-..."
+                                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Qty</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={item.quantity}
+                                                onChange={e => updateItem(item.key, 'quantity', e.target.value)}
+                                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">UOM</label>
+                                            <SearchableDropdown
+                                                category="uom"
+                                                value={item.uom}
+                                                onChange={val => updateItem(item.key, 'uom', val)}
+                                                placeholder="NOS"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Amount (₹)</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={item.amount}
+                                                onChange={e => updateItem(item.key, 'amount', e.target.value)}
+                                                placeholder="0.00"
+                                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">GST %</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                value={item.gst_percent}
+                                                onChange={e => updateItem(item.key, 'gst_percent', e.target.value)}
+                                                placeholder="0"
+                                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-surface-700/70 uppercase tracking-wider mb-1.5">Remarks</label>
+                                            <textarea
+                                                value={item.remarks}
+                                                onChange={e => updateItem(item.key, 'remarks', e.target.value)}
+                                                rows={2}
+                                                placeholder="Additional notes..."
+                                                className="w-full px-3 py-2 text-sm rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all resize-none"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                            <button
+                                type="button"
+                                onClick={addItem}
+                                className="w-full py-3 border-2 border-dashed border-surface-200 rounded-xl text-sm font-medium text-surface-500 hover:border-brand-300 hover:text-brand-500 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Plus size={16} /> Add Another Item
+                            </button>
                         </div>
                     </div>
 

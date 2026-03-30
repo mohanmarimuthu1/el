@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import DesignTab from '@/components/DesignTab'
 import CreateIntentModal from '@/components/CreateIntentModal'
-import PurchaseIntentsPage from '@/pages/PurchaseIntentsPage'
+import PurchaseIndentsPage from '@/pages/PurchaseIndentsPage'
 import DespatchPage from '@/pages/DespatchPage'
 import VendorQuoteSection from '@/components/VendorQuoteSection'
 import VendorManagementPage from '@/pages/VendorManagementPage'
@@ -145,7 +145,7 @@ export default function ProjectWorkspacePage() {
         }
         setDeleting(true)
         // Cascading delete: specs, designs, purchase_intent_items via headers, then headers, then project
-        // Get all intent headers for this project
+        // Get all indent headers for this project
         const { data: headers } = await supabase
             .from('purchase_intent_headers')
             .select('id')
@@ -439,7 +439,7 @@ export default function ProjectWorkspacePage() {
 
                 {/* ─── PROCUREMENT TAB ─── */}
                 {activeTab === 'intents' && designApproved && (
-                    <PurchaseIntentsPage selectedProjectId={projectId} />
+                    <PurchaseIndentsPage selectedProjectId={projectId} />
                 )}
 
                 {/* ─── VENDORS TAB ─── */}
