@@ -19,7 +19,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
     // Form state
     const [name, setName] = useState('')
     const [client, setClient] = useState('')
-    const [modelNumber, setModelNumber] = useState('')
+
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
     const [status, setStatus] = useState('Active')
     const [clientAddress, setClientAddress] = useState('')
@@ -59,7 +59,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
                 .insert({
                     name: name.trim(),
                     client: client.trim(),
-                    model_number: modelNumber.trim().toUpperCase() || null,
+
                     client_address: clientAddress.trim() || null,
                     contact_person: contactPerson.trim() || null,
                     contact_number: contactNumber.trim() || null,
@@ -84,7 +84,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
             setSuccess('✅ Project created successfully!')
             setName('')
             setClient('')
-            setModelNumber('')
+
             setClientAddress('')
             setContactPerson('')
             setContactNumber('')
@@ -99,7 +99,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
     }
 
     const filtered = projects.filter(p =>
-        [p.name, p.client, p.model_number].some(v => v?.toLowerCase().includes(search.toLowerCase()))
+        [p.name, p.client].some(v => v?.toLowerCase().includes(search.toLowerCase()))
     )
 
     return (
@@ -180,16 +180,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
                                 required
                             />
                         </div>
-                        <div className="space-y-2 text-left">
-                            <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Model Number</label>
-                            <input
-                                type="text"
-                                value={modelNumber}
-                                onChange={(e) => setModelNumber(e.target.value)}
-                                placeholder="e.g. 5SL4416-7RC"
-                                className="w-full bg-surface-50 border-none rounded-2xl px-5 py-3.5 text-sm font-semibold font-mono text-surface-900 uppercase focus:ring-4 focus:ring-brand-500/10 focus:bg-white transition-all"
-                            />
-                        </div>
+
                         <div className="space-y-2 text-left">
                             <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Client Address</label>
                             <input
@@ -297,13 +288,7 @@ export default function ProjectsPage({ setSelectedProjectId }) {
                                 <User size={12} />
                                 <span className="text-xs font-medium truncate">{p.client || 'No Client'}</span>
                             </div>
-                            {p.model_number && (
-                                <div className="mb-3">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-100 text-surface-600 text-[10px] font-mono font-semibold tracking-wide">
-                                        {p.model_number}
-                                    </span>
-                                </div>
-                            )}
+
                             <div className="pt-4 border-t border-surface-100 flex items-center justify-between text-[10px] font-bold text-surface-400 uppercase tracking-widest">
                                 <div className="flex items-center gap-1.5">
                                     <Calendar size={12} />
