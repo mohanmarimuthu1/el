@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase, Building2, Lock, FolderKey, Bell } from 'lucide-react'
+import { LayoutDashboard, HardDrive, FileText, Users, X, ScrollText, Truck, ShieldCheck, LayoutGrid, Briefcase, Building2, Lock, FolderKey, Bell, ChevronDown } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabaseClient'
 import { useState, useEffect } from 'react'
@@ -8,14 +8,18 @@ const navSections = [
     {
         title: 'Core',
         items: [
-            { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+            {
+                to: '/', label: 'Dashboard', icon: LayoutDashboard,
+                subItems: [
+                    { to: '/purchase-entries', label: 'Purchase Entries', icon: FileText },
+                ]
+            },
         ]
     },
     {
         title: 'Product Management',
         items: [
             { to: '/inventory', label: 'Inventory', sublabel: 'Live Stock Tracking', icon: HardDrive },
-            { to: '/purchase-entries', label: 'Purchase Entries', sublabel: 'Historical Log', icon: FileText },
         ]
     },
     {
@@ -48,6 +52,7 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
     const [activeProject, setActiveProject] = useState(null)
     const [designApproved, setDesignApproved] = useState(false)
     const [pendingApprovals, setPendingApprovals] = useState(0)
+    const [expandedItems, setExpandedItems] = useState({})
 
     useEffect(() => {
         if (selectedProjectId) {
@@ -176,10 +181,12 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                                     {section.title}
                                 </h3>
                                 <div className="space-y-1">
-                                    {filteredItems.map(({ to, label, sublabel, icon: Icon, designGated, showNotification }) => {
+                                    {filteredItems.map(({ to, label, sublabel, icon: Icon, designGated, showNotification, subItems }) => {
                                         const gated = isItemGated({ designGated })
                                         const isPurchaseIndent = to === '/purchase-intents'
                                         const showBadge = isPurchaseIndent && pendingApprovals > 0
+                                        const hasSubItems = subItems && subItems.length > 0
+                                        const isExpanded = expandedItems[to]
 
                                         if (gated) {
                                             return (
@@ -202,42 +209,75 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                                         }
 
                                         return (
-                                            <NavLink
-                                                key={to}
-                                                to={to}
-                                                end={to === '/'}
-                                                onClick={() => setOpen(false)}
-                                                className={({ isActive }) =>
-                                                    `group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${isActive
-                                                        ? 'bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-xl shadow-brand-500/25 translate-x-1'
-                                                        : 'text-surface-500 hover:bg-white hover:text-surface-900 hover:shadow-lg hover:shadow-surface-900/5 hover:-translate-y-0.5'
-                                                    }`
-                                                }
-                                            >
-                                                {({ isActive }) => (
-                                                    <>
-                                                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${isActive ? 'bg-white/20 rotate-[10deg]' : 'bg-surface-50 group-hover:bg-white group-hover:rotate-0'
-                                                            }`}>
-                                                            <Icon size={18} className={isActive ? 'text-white' : 'text-surface-400 group-hover:text-brand-500'} />
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="truncate tracking-tight">{label}</div>
-                                                            {sublabel && (
-                                                                <div className={`text-[9px] font-bold uppercase tracking-wider opacity-60 ${isActive ? 'text-white' : 'text-surface-400'
+                                            <div key={to}>
+                                                <div className="flex items-center">
+                                                    <NavLink
+                                                        to={to}
+                                                        end={to === '/'}
+                                                        onClick={() => setOpen(false)}
+                                                        className={({ isActive }) =>
+                                                            `group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300 flex-1 ${isActive
+                                                                ? 'bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-xl shadow-brand-500/25 translate-x-1'
+                                                                : 'text-surface-500 hover:bg-white hover:text-surface-900 hover:shadow-lg hover:shadow-surface-900/5 hover:-translate-y-0.5'
+                                                            }`
+                                                        }
+                                                    >
+                                                        {({ isActive }) => (
+                                                            <>
+                                                                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${isActive ? 'bg-white/20 rotate-[10deg]' : 'bg-surface-50 group-hover:bg-white group-hover:rotate-0'
                                                                     }`}>
-                                                                    {sublabel}
+                                                                    <Icon size={18} className={isActive ? 'text-white' : 'text-surface-400 group-hover:text-brand-500'} />
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                        {showBadge && (
-                                                            <div className="flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-lg shadow-red-500/30">
-                                                                <Bell size={10} />
-                                                                {pendingApprovals}
-                                                            </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="truncate tracking-tight">{label}</div>
+                                                                    {sublabel && (
+                                                                        <div className={`text-[9px] font-bold uppercase tracking-wider opacity-60 ${isActive ? 'text-white' : 'text-surface-400'
+                                                                            }`}>
+                                                                            {sublabel}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                {showBadge && (
+                                                                    <div className="flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-lg shadow-red-500/30">
+                                                                        <Bell size={10} />
+                                                                        {pendingApprovals}
+                                                                    </div>
+                                                                )}
+                                                            </>
                                                         )}
-                                                    </>
+                                                    </NavLink>
+                                                    {hasSubItems && (
+                                                        <button
+                                                            onClick={() => setExpandedItems(prev => ({ ...prev, [to]: !prev[to] }))}
+                                                            className="p-2 rounded-xl hover:bg-surface-100 text-surface-400 hover:text-surface-600 transition-all mr-1"
+                                                            title="Expand"
+                                                        >
+                                                            <ChevronDown size={14} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {/* Sub-items dropdown */}
+                                                {hasSubItems && isExpanded && (
+                                                    <div className="ml-8 mt-1 space-y-0.5 animate-in slide-in-from-top-2 duration-200">
+                                                        {subItems.map(({ to: subTo, label: subLabel, icon: SubIcon }) => (
+                                                            <NavLink
+                                                                key={subTo}
+                                                                to={subTo}
+                                                                onClick={() => setOpen(false)}
+                                                                className={({ isActive }) =>
+                                                                    `flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${isActive
+                                                                        ? 'bg-brand-100 text-brand-700'
+                                                                        : 'text-surface-500 hover:bg-surface-50 hover:text-surface-700'
+                                                                    }`
+                                                                }
+                                                            >
+                                                                <SubIcon size={14} />
+                                                                {subLabel}
+                                                            </NavLink>
+                                                        ))}
+                                                    </div>
                                                 )}
-                                            </NavLink>
+                                            </div>
                                         )
                                     })}
                                 </div>
