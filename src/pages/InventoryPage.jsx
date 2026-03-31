@@ -322,7 +322,7 @@ export default function InventoryPage() {
                     {canManageInventory && (
                         <>
                             <button
-                                onClick={() => setIntentModalOpen(true)}
+                                onClick={() => setIndentModalOpen(true)}
                                 className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all"
                             >
                                 <FileText size={15} />
@@ -723,7 +723,7 @@ export default function InventoryPage() {
             {/* Create Intent Modal for General Stock */}
             <CreateIntentModal
                 open={indentModalOpen}
-                onClose={() => setIntentModalOpen(false)}
+                onClose={() => setIndentModalOpen(false)}
             />
 
             <style>{`

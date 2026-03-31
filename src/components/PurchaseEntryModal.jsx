@@ -313,13 +313,6 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
                                 </div>
                             ))}
 
-                            <button
-                                type="button"
-                                onClick={addItem}
-                                className="w-full py-3 border-2 border-dashed border-surface-200 rounded-xl text-sm font-medium text-surface-500 hover:border-brand-300 hover:text-brand-500 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Plus size={16} /> Add Another Item
-                            </button>
                         </div>
                     </div>
 
@@ -333,6 +326,9 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
                     )}
 
                     <div className="flex justify-end gap-2 pt-2">
+                        <button type="button" onClick={addItem} className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-brand-600 rounded-lg border border-brand-200 bg-brand-50 hover:bg-brand-100 transition-colors">
+                            <Plus size={12} /> Add Item
+                        </button>
                         <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-surface-700 rounded-xl border border-surface-200 hover:bg-surface-50 transition-colors">
                             Cancel
                         </button>
@@ -341,7 +337,7 @@ export default function PurchaseEntryModal({ open, onClose, onSuccess }) {
                             disabled={submitting}
                             className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 shadow-lg shadow-violet-500/25 transition-all disabled:opacity-60"
                         >
-                            {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Plus size={14} /> Record Purchase</>}
+                            {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : 'Submit'}
                         </button>
                     </div>
                 </form>

@@ -29,7 +29,7 @@ const navSections = [
         items: [
             { to: '/projects', label: 'Active Projects', sublabel: 'Manager', icon: Briefcase },
             { to: '/despatch', label: 'Despatch', sublabel: 'Outbound', icon: Truck, designGated: true },
-            { to: '/purchase-intents', label: 'Purchase Indents', sublabel: 'Purchase Request Ledger', icon: FileText, designGated: true },
+            { to: '/purchase-intents', label: 'Approvals', sublabel: 'Purchase Request Ledger', icon: FileText, designGated: true },
             { to: '/project-usage', label: 'Despatch History', sublabel: 'Material Allocation Log', icon: LayoutGrid, designGated: true },
         ]
     },
@@ -99,7 +99,7 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
             setDesignApproved(data.design_approved || false)
         }
     }
-    
+
     const filterItems = (items) => items.filter(item => {
         if (item.adminOnly && !isAdmin) return false
         if (item.adminOrOwner && !isAdmin && !isOwner) return false
@@ -145,7 +145,7 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                     <div className="mx-4 mt-6 p-4 rounded-2xl bg-brand-50 border border-brand-100 animate-in slide-in-from-left-4 duration-500">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-[10px] font-bold text-brand-500 uppercase tracking-widest">Active Project</span>
-                            <button 
+                            <button
                                 onClick={() => setSelectedProjectId(null)}
                                 className="p-1 rounded-lg hover:bg-brand-100 text-brand-600 transition-colors"
                                 title="Clear Project Context"
@@ -169,7 +169,7 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                     {navSections.map((section) => {
                         const filteredItems = filterItems(section.items)
                         if (filteredItems.length === 0) return null
-                        
+
                         return (
                             <div key={section.title} className="space-y-3">
                                 <h3 className="px-5 text-[10px] font-bold text-surface-400 uppercase tracking-[0.2em]">
@@ -177,69 +177,69 @@ export default function Sidebar({ open, setOpen, selectedProjectId, setSelectedP
                                 </h3>
                                 <div className="space-y-1">
                                     {filteredItems.map(({ to, label, sublabel, icon: Icon, designGated, showNotification }) => {
-                                    const gated = isItemGated({ designGated })
-                                    const isPurchaseIndent = to === '/purchase-intents'
-                                    const showBadge = isPurchaseIndent && pendingApprovals > 0
-                                    
-                                    if (gated) {
-                                        return (
-                                            <div
-                                                key={to}
-                                                className="group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-surface-300 cursor-not-allowed opacity-60"
-                                                title="Upload a design first to unlock this module"
-                                            >
-                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-50">
-                                                    <Lock size={16} className="text-surface-300" />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="truncate tracking-tight">{label}</div>
-                                                    <div className="text-[9px] font-bold uppercase tracking-wider text-surface-300">
-                                                        Design required
+                                        const gated = isItemGated({ designGated })
+                                        const isPurchaseIndent = to === '/purchase-intents'
+                                        const showBadge = isPurchaseIndent && pendingApprovals > 0
+
+                                        if (gated) {
+                                            return (
+                                                <div
+                                                    key={to}
+                                                    className="group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-surface-300 cursor-not-allowed opacity-60"
+                                                    title="Upload a design first to unlock this module"
+                                                >
+                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-50">
+                                                        <Lock size={16} className="text-surface-300" />
                                                     </div>
-                                                </div>
-                                            </div>
-                                        )
-                                    }
-                                    
-                                    return (
-                                        <NavLink
-                                            key={to}
-                                            to={to}
-                                            end={to === '/'}
-                                            onClick={() => setOpen(false)}
-                                            className={({ isActive }) =>
-                                                `group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${isActive
-                                                    ? 'bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-xl shadow-brand-500/25 translate-x-1'
-                                                    : 'text-surface-500 hover:bg-white hover:text-surface-900 hover:shadow-lg hover:shadow-surface-900/5 hover:-translate-y-0.5'
-                                                }`
-                                            }
-                                        >
-                                            {({ isActive }) => (
-                                                <>
-                                                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${isActive ? 'bg-white/20 rotate-[10deg]' : 'bg-surface-50 group-hover:bg-white group-hover:rotate-0'
-                                                        }`}>
-                                                        <Icon size={18} className={isActive ? 'text-white' : 'text-surface-400 group-hover:text-brand-500'} />
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
+                                                    <div className="min-w-0">
                                                         <div className="truncate tracking-tight">{label}</div>
-                                                        {sublabel && (
-                                                            <div className={`text-[9px] font-bold uppercase tracking-wider opacity-60 ${isActive ? 'text-white' : 'text-surface-400'
-                                                                }`}>
-                                                                {sublabel}
+                                                        <div className="text-[9px] font-bold uppercase tracking-wider text-surface-300">
+                                                            Design required
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        return (
+                                            <NavLink
+                                                key={to}
+                                                to={to}
+                                                end={to === '/'}
+                                                onClick={() => setOpen(false)}
+                                                className={({ isActive }) =>
+                                                    `group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${isActive
+                                                        ? 'bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-xl shadow-brand-500/25 translate-x-1'
+                                                        : 'text-surface-500 hover:bg-white hover:text-surface-900 hover:shadow-lg hover:shadow-surface-900/5 hover:-translate-y-0.5'
+                                                    }`
+                                                }
+                                            >
+                                                {({ isActive }) => (
+                                                    <>
+                                                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${isActive ? 'bg-white/20 rotate-[10deg]' : 'bg-surface-50 group-hover:bg-white group-hover:rotate-0'
+                                                            }`}>
+                                                            <Icon size={18} className={isActive ? 'text-white' : 'text-surface-400 group-hover:text-brand-500'} />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="truncate tracking-tight">{label}</div>
+                                                            {sublabel && (
+                                                                <div className={`text-[9px] font-bold uppercase tracking-wider opacity-60 ${isActive ? 'text-white' : 'text-surface-400'
+                                                                    }`}>
+                                                                    {sublabel}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {showBadge && (
+                                                            <div className="flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-lg shadow-red-500/30">
+                                                                <Bell size={10} />
+                                                                {pendingApprovals}
                                                             </div>
                                                         )}
-                                                    </div>
-                                                    {showBadge && (
-                                                        <div className="flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-lg shadow-red-500/30">
-                                                            <Bell size={10} />
-                                                            {pendingApprovals}
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-                                        </NavLink>
-                                    )
-                                })}
+                                                    </>
+                                                )}
+                                            </NavLink>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )
