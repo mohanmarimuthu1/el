@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { formatTimestamp } from '@/lib/formatTime'
-import { Building2, Search, RefreshCw, Plus, Edit2, Trash2, AlertCircle, Clock, ArrowLeft, FileText, Upload, ExternalLink, Loader2, Users, Phone, Mail } from 'lucide-react'
+import { Building2, Search, RefreshCw, Plus, Edit2, Trash2, AlertCircle, Clock, ArrowLeft, FileText, Upload, ExternalLink, Loader2, Phone } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function CompanyPaymentsPage() {
@@ -25,13 +25,11 @@ export default function CompanyPaymentsPage() {
     const [dcStatus, setDcStatus] = useState('not_sent')
     const [bankStatementUrl, setBankStatementUrl] = useState('')
     const [expectedDate, setExpectedDate] = useState('')
-    const [address, setAddress] = useState('')
-    const [gstNumber, setGstNumber] = useState('')
-    const [contactName, setContactName] = useState('')
     const [contactNumber, setContactNumber] = useState('')
-    const [contactEmail, setContactEmail] = useState('')
+    const [remarks, setRemarks] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
     const [selectedFile, setSelectedFile] = useState(null)
+    const [errorToast, setErrorToast] = useState('')
 
     useEffect(() => {
         fetchPayments()
@@ -66,8 +64,23 @@ export default function CompanyPaymentsPage() {
         setLoading(false)
     }
 
+    function showErrorToast(msg) {
+        setErrorToast(msg)
+        setTimeout(() => setErrorToast(''), 3500)
+    }
+
     async function handleSubmit(e) {
         e.preventDefault()
+
+        // Duplicate company name check on submit
+        const duplicate = payments.some(
+            p => p.company_name.trim().toLowerCase() === companyName.trim().toLowerCase() && p.id !== editingId
+        )
+        if (duplicate) {
+            showErrorToast(`"${companyName.trim()}" already exists. Use a unique company name.`)
+            return
+        }
+
         setSubmitting(true)
 
         let finalUrl = bankStatementUrl
@@ -105,14 +118,11 @@ export default function CompanyPaymentsPage() {
             pending_amount: parseFloat(pendingAmount),
             status,
             priority,
-            dc_status: dcStatus,
+            // dc_status: dcStatus, // commented out - field hidden
             bank_statement_url: finalUrl,
             expected_date: expectedDate || null,
-            address,
-            gst_number: gstNumber,
-            contact_name: contactName,
-            contact_number: contactNumber,
-            contact_email: contactEmail
+            contact_number: contactNumber || null,
+            remarks: remarks || null
         }
 
         let error;
@@ -154,11 +164,8 @@ export default function CompanyPaymentsPage() {
         setDcStatus('not_sent')
         setBankStatementUrl('')
         setExpectedDate('')
-        setAddress('')
-        setGstNumber('')
-        setContactName('')
         setContactNumber('')
-        setContactEmail('')
+        setRemarks('')
         setSelectedFile(null)
         setEditingId(null)
         setModalOpen(false)
@@ -174,11 +181,8 @@ export default function CompanyPaymentsPage() {
         setDcStatus(item.dc_status || 'not_sent')
         setBankStatementUrl(item.bank_statement_url || '')
         setExpectedDate(item.expected_date || '')
-        setAddress(item.address || '')
-        setGstNumber(item.gst_number || '')
-        setContactName(item.contact_name || '')
         setContactNumber(item.contact_number || '')
-        setContactEmail(item.contact_email || '')
+        setRemarks(item.remarks || '')
         setSelectedFile(null)
         setModalOpen(true)
     }
@@ -195,10 +199,8 @@ export default function CompanyPaymentsPage() {
 
     const filtered = payments.filter(row => {
         const matchesSearch = row.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-            row.contact_name?.toLowerCase().includes(search.toLowerCase()) ||
             row.contact_number?.toLowerCase().includes(search.toLowerCase()) ||
-            row.contact_email?.toLowerCase().includes(search.toLowerCase()) ||
-            row.gst_number?.toLowerCase().includes(search.toLowerCase())
+            row.remarks?.toLowerCase().includes(search.toLowerCase())
 
         let matchesStatus = true
         if (statusFilter === 'all') matchesStatus = true
@@ -217,6 +219,12 @@ export default function CompanyPaymentsPage() {
 
     return (
         <div className="space-y-6">
+            {/* Error Toast */}
+            {errorToast && (
+                <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2.5 px-5 py-3 bg-rose-600 text-white rounded-2xl shadow-2xl shadow-rose-500/30 text-sm font-semibold animate-[toastSlideDown_0.3s_ease-out]">
+                    <span>⚠️</span> {errorToast}
+                </div>
+            )}
             {/* Header */}
             <div className="flex flex-col gap-3">
                 {/* Row 1: title + add button */}
@@ -396,10 +404,11 @@ export default function CompanyPaymentsPage() {
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider">Amounts</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Status</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Priority</th>
-                                <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">DC Status</th>
+                                {/* <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">DC Status</th> */}
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Statement</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Expected Date</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-center">Duration</th>
+                                <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider">Remarks</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider">Created</th>
                                 <th className="px-5 py-3.5 font-bold text-surface-700/70 text-xs uppercase tracking-wider text-right">Actions</th>
                             </tr>
@@ -428,25 +437,10 @@ export default function CompanyPaymentsPage() {
                                     <tr key={item.id} className="hover:bg-brand-50/30 transition-colors group">
                                         <td className="px-5 py-4">
                                             <div className="font-bold text-surface-900">{item.company_name}</div>
-                                            {item.contact_name && (
-                                                <div className="text-[10px] text-surface-400 flex items-center gap-1 mt-0.5">
-                                                    <Users size={10} /> {item.contact_name}
-                                                </div>
-                                            )}
                                             {item.contact_number && (
                                                 <div className="text-[10px] text-surface-500 flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5 font-mono">
                                                     {item.contact_number.split(',').map((num, i) => (
                                                         <span key={i} className="flex items-center gap-1"><Phone size={10} /> {num.trim()}</span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {item.contact_email && (
-                                                <div className="text-[10px] text-surface-500 flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                                                    {item.contact_email.split(',').map((email, i) => (
-                                                        <span key={i} className="flex items-center gap-1">
-                                                            <Mail size={10} /> 
-                                                            <a href={`mailto:${email.trim()}`} className="hover:text-brand-500" onClick={e => e.stopPropagation()}>{email.trim()}</a>
-                                                        </span>
                                                     ))}
                                                 </div>
                                             )}
@@ -476,6 +470,7 @@ export default function CompanyPaymentsPage() {
                                                 {item.priority}
                                             </span>
                                         </td>
+                                        {/* DC Status column - commented out
                                         <td className="px-5 py-4 text-center">
                                             {item.dc_status === 'sent' ? (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">
@@ -489,6 +484,7 @@ export default function CompanyPaymentsPage() {
                                                 <span className="text-surface-300 font-mono text-xs">N/A</span>
                                             )}
                                         </td>
+                                        */}
                                         <td className="px-5 py-4 text-center">
                                             {item.bank_statement_url ? (
                                                 <a 
@@ -532,6 +528,13 @@ export default function CompanyPaymentsPage() {
                                                         </span>
                                                     )}
                                                 </div>
+                                            ) : (
+                                                <span className="text-surface-300">—</span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-4 max-w-[180px]">
+                                            {item.remarks ? (
+                                                <span className="text-xs text-surface-600 line-clamp-2">{item.remarks}</span>
                                             ) : (
                                                 <span className="text-surface-300">—</span>
                                             )}
@@ -626,7 +629,7 @@ export default function CompanyPaymentsPage() {
                                     />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Status</label>
                                     <select
@@ -649,6 +652,7 @@ export default function CompanyPaymentsPage() {
                                         <option value="immediate">Immediate</option>
                                     </select>
                                 </div>
+                                {/* DC Status - commented out
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">DC Status</label>
                                     <select
@@ -661,6 +665,7 @@ export default function CompanyPaymentsPage() {
                                         <option value="na">N/A</option>
                                     </select>
                                 </div>
+                                */}
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Expected Date of Payment</label>
@@ -672,64 +677,28 @@ export default function CompanyPaymentsPage() {
                                 />
                             </div>
                             
-                            {/* New Detail Fields */}
-                            <div className="space-y-4 pt-2 border-t border-surface-100">
-                                <div className="text-[10px] font-bold text-brand-500 uppercase tracking-widest mb-1">Company Details</div>
-                                
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Full Address</label>
-                                    <textarea
-                                        value={address}
-                                        onChange={(e) => setAddress(e.target.value)}
-                                        placeholder="Enter company address..."
-                                        rows={2}
-                                        className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-medium resize-none"
-                                    />
-                                </div>
-                                
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">GST Number</label>
-                                    <input
-                                        type="text"
-                                        value={gstNumber}
-                                        onChange={(e) => setGstNumber(e.target.value)}
-                                        placeholder="e.g. 22AAAAA0000A1Z5"
-                                        className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono uppercase"
-                                    />
-                                </div>
-                                
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Contact Name</label>
-                                        <input
-                                            type="text"
-                                            value={contactName}
-                                            onChange={(e) => setContactName(e.target.value)}
-                                            placeholder="Contact person"
-                                            className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-medium"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Contact Number(s)</label>
-                                        <input
-                                            type="text"
-                                            value={contactNumber}
-                                            onChange={(e) => setContactNumber(e.target.value)}
-                                            placeholder="Comma separated for multiple"
-                                            className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono text-sm"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Contact Email(s)</label>
-                                        <input
-                                            type="text"
-                                            value={contactEmail}
-                                            onChange={(e) => setContactEmail(e.target.value)}
-                                            placeholder="Comma separated for multiple"
-                                            className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-medium text-sm"
-                                        />
-                                    </div>
-                                </div>
+                            {/* Contact Number */}
+                            <div className="space-y-1.5 pt-2 border-t border-surface-100">
+                                <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Contact Number(s)</label>
+                                <input
+                                    type="text"
+                                    value={contactNumber}
+                                    onChange={(e) => setContactNumber(e.target.value)}
+                                    placeholder="Comma separated for multiple"
+                                    className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono text-sm"
+                                />
+                            </div>
+
+                            {/* Remarks */}
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-surface-400 uppercase tracking-widest ml-1">Remarks</label>
+                                <textarea
+                                    value={remarks}
+                                    onChange={(e) => setRemarks(e.target.value)}
+                                    placeholder="Add any notes or remarks..."
+                                    rows={3}
+                                    className="w-full px-4 py-3 rounded-2xl border border-surface-200 bg-surface-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-medium resize-none"
+                                />
                             </div>
 
                             {editingId && (
