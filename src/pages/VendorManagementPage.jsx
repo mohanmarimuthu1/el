@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { Users, Search, RefreshCw, Plus, Loader2, Pencil, Check, X, Phone, Mail, MapPin, Hash, Trash2 } from 'lucide-react'
+import { Users, Search, RefreshCw, Plus, Loader2, Pencil, Check, X, Phone, Mail, MapPin, Hash, Trash2, Landmark } from 'lucide-react'
 
-const emptyForm = { name: '', contact_person: '', phone: '', email: '', address: '', gst_number: '' }
+const emptyForm = { name: '', contact_person: '', phone: '', email: '', address: '', gst_number: '', landline_number: '' }
 
 function generateVendorId() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -55,6 +55,7 @@ export default function VendorManagementPage() {
             email: form.email.trim() || null,
             address: form.address.trim() || null,
             gst_number: form.gst_number.trim() || null,
+            landline_number: form.landline_number.trim() || null,
         })
         if (error) {
             alert(`Failed to add vendor: ${error.message}`)
@@ -75,6 +76,7 @@ export default function VendorManagementPage() {
             email: v.email || '',
             address: v.address || '',
             gst_number: v.gst_number || '',
+            landline_number: v.landline_number || '',
         })
     }
 
@@ -87,6 +89,7 @@ export default function VendorManagementPage() {
             email: editForm.email.trim() || null,
             address: editForm.address.trim() || null,
             gst_number: editForm.gst_number.trim() || null,
+            landline_number: editForm.landline_number.trim() || null,
         }).eq('id', id)
         setEditingId(null)
         setSavingId(null)
@@ -161,7 +164,8 @@ export default function VendorManagementPage() {
                         {[
                             { key: 'name', label: 'Company Name', required: true, icon: null },
                             { key: 'contact_person', label: 'Contact Person', icon: null },
-                            { key: 'phone', label: 'Phone', icon: null },
+                            { key: 'phone', label: 'Phone Number', icon: null },
+                            { key: 'landline_number', label: 'Landline Number', icon: null },
                             { key: 'email', label: 'Email', type: 'email', icon: null },
                             { key: 'gst_number', label: 'GST Number', icon: null },
                             { key: 'address', label: 'Address', icon: null, colSpan: true },
@@ -185,7 +189,7 @@ export default function VendorManagementPage() {
                                 Cancel
                             </button>
                             <button type="submit" disabled={submitting} className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold rounded-xl text-white bg-brand-500 hover:bg-brand-600 shadow-lg shadow-brand-500/25 transition-all disabled:opacity-60">
-                                {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add Vendor
+                                {submitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Submit
                             </button>
                         </div>
                     </form>
@@ -215,7 +219,8 @@ export default function VendorManagementPage() {
                                     {[
                                         { key: 'name', label: 'Company Name' },
                                         { key: 'contact_person', label: 'Contact Person' },
-                                        { key: 'phone', label: 'Phone' },
+                                        { key: 'phone', label: 'Phone Number' },
+                                        { key: 'landline_number', label: 'Landline Number' },
                                         { key: 'email', label: 'Email' },
                                         { key: 'gst_number', label: 'GST Number' },
                                         { key: 'address', label: 'Address' },
@@ -285,6 +290,12 @@ export default function VendorManagementPage() {
                                             <div className="flex items-center gap-2 text-xs text-surface-600">
                                                 <Phone size={11} className="text-surface-400 shrink-0" />
                                                 <span>{v.phone}</span>
+                                            </div>
+                                        )}
+                                        {v.landline_number && (
+                                            <div className="flex items-center gap-2 text-xs text-surface-600">
+                                                <Landmark size={11} className="text-surface-400 shrink-0" />
+                                                <span>{v.landline_number}</span>
                                             </div>
                                         )}
                                         {v.email && (

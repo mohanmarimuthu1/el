@@ -271,7 +271,7 @@ export default function InventoryPage() {
     }
 
     // Column count
-    const colCount = canManageInventory ? (canDelete ? 12 : 11) : 10
+    const colCount = canManageInventory ? (canDelete ? 11 : 10) : 9
 
     return (
         <div className="space-y-6">
@@ -367,7 +367,7 @@ export default function InventoryPage() {
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Name</th>
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Manufacturer</th>
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Model No.</th>
-                                <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Serial No.</th>
+
                                 <th className="text-center px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Qty</th>
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider w-20">UOM</th>
                                 <th className="text-left px-4 py-3.5 font-semibold text-surface-700/70 text-xs uppercase tracking-wider">Description</th>
@@ -454,13 +454,7 @@ export default function InventoryPage() {
                                                     <span className="text-surface-700 font-mono text-xs">{row.model_number || '—'}</span>
                                                 )}
                                             </td>
-                                            <td className="px-5 py-3.5">
-                                                {isEditing ? (
-                                                    <input type="text" value={editForm.serial_number} onChange={e => setEditForm(prev => ({ ...prev, serial_number: e.target.value }))} className="w-full min-w-[80px] px-2 py-1 text-xs rounded-lg border border-brand-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 transition-all font-mono" placeholder="Serial No." />
-                                                ) : (
-                                                    <span className="font-mono text-xs text-surface-700">{row.serial_number || '—'}</span>
-                                                )}
-                                            </td>
+
 
                                             {/* Quantity */}
                                             <td className="px-5 py-3.5 text-center">
