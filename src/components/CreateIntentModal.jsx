@@ -201,7 +201,7 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
             if (!generalForm.unit_of_measurement) return setError('Unit is required')
 
             setSubmitting(true)
-            
+
             const { data: headerData, error: headerError } = await supabase.from('purchase_intent_headers').insert({
                 project_id: null,
                 intent_type: 'General Stock',
@@ -266,11 +266,10 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                 <button
                                     type="button"
                                     onClick={() => setIndentType('project_intent')}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
-                                        indentType === 'project_intent'
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${indentType === 'project_intent'
                                             ? 'border-brand-400 bg-brand-50 text-brand-700'
                                             : 'border-surface-200 bg-white text-surface-600 hover:border-surface-300'
-                                    }`}
+                                        }`}
                                 >
                                     <Briefcase size={18} className={indentType === 'project_intent' ? 'text-brand-500' : 'text-surface-400'} />
                                     <div>
@@ -281,11 +280,10 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                 <button
                                     type="button"
                                     onClick={() => setIntentType('general_stock')}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
-                                        indentType === 'general_stock'
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${indentType === 'general_stock'
                                             ? 'border-amber-400 bg-amber-50 text-amber-700'
                                             : 'border-surface-200 bg-white text-surface-600 hover:border-surface-300'
-                                    }`}
+                                        }`}
                                 >
                                     <Warehouse size={18} className={indentType === 'general_stock' ? 'text-amber-500' : 'text-surface-400'} />
                                     <div>
@@ -338,45 +336,45 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                             className="w-full px-4 py-2.5 text-sm font-semibold rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all cursor-pointer"
                                         >
                                             <option value="">Select Name...</option>
-                                            <option value="Sarath">Sarath</option>
-                                            <option value="Gopi">Gopi</option>
-                                            <option value="Parthiban">Parthiban</option>
-                                            <option value="Bhuvanesh Anna">Bhuvanesh Anna</option>
+                                            <option value="MR.Sarath">MR.Sarath</option>
+                                            <option value="MR.Gopi">MR.Gopi</option>
+                                            <option value="MR.Parthiban">MR.Parthiban</option>
+                                            <option value="MR.Bhuvanesh">MR.Bhuvanesh</option>
                                         </select>
                                     </div>
                                 </div>
 
 
-                            {/* Product rows — only shown once project is selected (or inside project context) */}
+                                {/* Product rows — only shown once project is selected (or inside project context) */}
                                 {(selectedProjectId || projectId) ? (
-                                <div>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <label className="text-xs font-bold text-surface-700/70 uppercase tracking-wider">Design Input List</label>
-                                        <span className="text-[10px] text-surface-400">{products.length} item{products.length !== 1 ? 's' : ''}</span>
-                                    </div>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <label className="text-xs font-bold text-surface-700/70 uppercase tracking-wider">Design Input List</label>
+                                            <span className="text-[10px] text-surface-400">{products.length} item{products.length !== 1 ? 's' : ''}</span>
+                                        </div>
 
-                                    <div className="space-y-3">
-                                        {products.map((product, idx) => (
-                                            <ProductRow
-                                                key={product.key}
-                                                product={product}
-                                                index={idx}
-                                                suggestions={inventorySuggestions}
-                                                onChange={(field, val) => updateProduct(product.key, field, val)}
-                                                onSuggestion={(s) => applyInventorySuggestion(product.key, s)}
-                                                onRemove={products.length > 1 ? () => removeProductRow(product.key) : null}
-                                            />
-                                        ))}
-                                    </div>
+                                        <div className="space-y-3">
+                                            {products.map((product, idx) => (
+                                                <ProductRow
+                                                    key={product.key}
+                                                    product={product}
+                                                    index={idx}
+                                                    suggestions={inventorySuggestions}
+                                                    onChange={(field, val) => updateProduct(product.key, field, val)}
+                                                    onSuggestion={(s) => applyInventorySuggestion(product.key, s)}
+                                                    onRemove={products.length > 1 ? () => removeProductRow(product.key) : null}
+                                                />
+                                            ))}
+                                        </div>
 
-                                    <button
-                                        type="button"
-                                        onClick={addProductRow}
-                                        className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-brand-300 text-brand-600 text-sm font-semibold hover:bg-brand-50 hover:border-brand-400 transition-all"
-                                    >
-                                        <Plus size={15} /> Add Another Product
-                                    </button>
-                                </div>
+                                        <button
+                                            type="button"
+                                            onClick={addProductRow}
+                                            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-brand-300 text-brand-600 text-sm font-semibold hover:bg-brand-50 hover:border-brand-400 transition-all"
+                                        >
+                                            <Plus size={15} /> Add Another Product
+                                        </button>
+                                    </div>
                                 ) : (
                                     <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 px-4 py-5 text-center">
                                         <p className="text-sm font-semibold text-amber-700">Select a project first</p>
@@ -468,10 +466,10 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                                             className="w-full px-4 py-2.5 text-sm font-semibold rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-all cursor-pointer"
                                         >
                                             <option value="">Select Name...</option>
-                                            <option value="Sarath">Sarath</option>
-                                            <option value="Gopi">Gopi</option>
-                                            <option value="Parthiban">Parthiban</option>
-                                            <option value="Bhuvanesh Anna">Bhuvanesh Anna</option>
+                                            <option value="MR.Sarath">MR.Sarath</option>
+                                            <option value="MR.Gopi">MR.Gopi</option>
+                                            <option value="MR.Parthiban">MR.Parthiban</option>
+                                            <option value="MR.Bhuvanesh">MR.Bhuvanesh</option>
                                         </select>
                                     </div>
                                 </div>
@@ -556,13 +554,12 @@ export default function CreateIntentModal({ open, onClose, onSuccess, selectedPr
                             <button
                                 type="submit"
                                 disabled={submitting || success}
-                                className={`flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-xl text-white transition-all shadow-lg ${
-                                    success
+                                className={`flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-xl text-white transition-all shadow-lg ${success
                                         ? 'bg-emerald-500 shadow-emerald-500/25'
                                         : indentType === 'general_stock'
                                             ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-500/25'
                                             : 'bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-brand-500/25'
-                                } disabled:opacity-70 disabled:cursor-not-allowed`}
+                                    } disabled:opacity-70 disabled:cursor-not-allowed`}
                             >
                                 {submitting ? (
                                     <><Loader2 size={15} className="animate-spin" /> Submitting...</>
